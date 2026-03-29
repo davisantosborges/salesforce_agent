@@ -40,3 +40,22 @@ export {
   getCustomFields,
   getValidationRules,
 } from "./tooling";
+
+export {
+  createDataLakeObject,
+  readDataLakeObject,
+  listDataLakeObjects,
+  deleteDataLakeObject,
+  createDataTransform,
+  listDataTransforms,
+  getDataTransform,
+  queryDataCloud,
+  mapTypeToDloDatatype,
+  buildFieldsFromSchema,
+} from "./data-cloud";
+export type {
+  DloFieldDatatype,
+  DloFieldConfig,
+  DloConfig,
+  DataTransformConfig,
+} from "./data-cloud";
