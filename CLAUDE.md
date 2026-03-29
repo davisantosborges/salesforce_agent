@@ -117,6 +117,39 @@ const result = await createDataCloudTransform(conn, {
 
 Browser-based UI tests executed by Claude Code via chrome automation. 8 steps for School__c: tab navigation, list view, record form, record CRUD, 2 validation rules.
 
+### Platform Events (`src/skills/platform-event.ts`)
+
+Creates and manages Platform Events (event-driven messaging):
+
+```typescript
+const result = await createCompletePlatformEvent(conn, {
+  name: "School_Action",
+  label: "School Action",
+  pluralLabel: "School Actions",
+  eventType: "HighVolume",
+  publishBehavior: "PublishAfterCommit",
+  fields: [
+    { name: "Action_Type", label: "Action Type", type: "Text", length: 50, required: true },
+    { name: "Payload", label: "Payload", type: "LongTextArea", description: "JSON data" },
+    { name: "Is_Async", label: "Is Async", type: "Checkbox" },
+  ],
+  testData: { Action_Type__c: "Create", Payload__c: '{"key":"value"}' },
+});
+```
+
+**Creates:** Event (__e suffix) → Fields → Verify → Publish test event
+
+**Platform Event rules:**
+- API name ends with `__e` (not `__c`)
+- Supported field types: Text, Number, Checkbox, Date, DateTime, LongTextArea
+- NOT supported: Picklist, Lookup, Formula, RichText
+- Checkbox fields auto-set `defaultValue: "false"`
+- Publish via REST: `POST /services/data/v62.0/sobjects/EventName__e`
+- Subscribe via: Apex triggers (after insert), Flows, CometD, Pub/Sub API
+- Retention: 72h (HighVolume), 24h (StandardVolume)
+
+**Deployed: `School_Action__e`** — 8 fields (Action_Type, School_Id, School_Code, Payload, Requested_By, Priority, Correlation_Id, Is_Async). Designed as action endpoint for Agentforce/automations.
+
 ## Data Cloud Object Hierarchy
 
 ```
