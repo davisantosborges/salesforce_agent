@@ -11,6 +11,9 @@ import {
   createCompactLayout,
   createValidationRule,
   createRecordType,
+  createPlatformEvent,
+  createPlatformEventField,
+  publishPlatformEvent,
   readMetadata,
   updateMetadata,
   deleteMetadata,
@@ -331,5 +334,111 @@ describe("generic metadata operations", () => {
     const { conn, mocks } = createMockConnection();
     await listMetadata(conn, "CustomObject");
     expect(mocks.metadataList).toHaveBeenCalledWith({ type: "CustomObject" });
+  });
+});
+
+describe("createPlatformEvent", () => {
+  it("creates CustomObject with __e suffix and event properties", async () => {
+    const { conn, mocks } = createMockConnection();
+    await createPlatformEvent(conn, {
+      name: "School_Action",
+      label: "School Action",
+      pluralLabel: "School Actions",
+    });
+    expect(mocks.metadataCreate).toHaveBeenCalledWith("CustomObject", expect.objectContaining({
+      fullName: "School_Action__e",
+      label: "School Action",
+      deploymentStatus: "Deployed",
+      eventType: "HighVolume",
+      publishBehavior: "PublishAfterCommit",
+    }));
+  });
+
+  it("does not double-append __e suffix", async () => {
+    const { conn, mocks } = createMockConnection();
+    await createPlatformEvent(conn, {
+      name: "Test__e",
+      label: "Test",
+      pluralLabel: "Tests",
+    });
+    expect(mocks.metadataCreate).toHaveBeenCalledWith("CustomObject", expect.objectContaining({
+      fullName: "Test__e",
+    }));
+  });
+
+  it("allows PublishImmediately behavior", async () => {
+    const { conn, mocks } = createMockConnection();
+    await createPlatformEvent(conn, {
+      name: "Urgent_Event",
+      label: "Urgent Event",
+      pluralLabel: "Urgent Events",
+      publishBehavior: "PublishImmediately",
+    });
+    expect(mocks.metadataCreate).toHaveBeenCalledWith("CustomObject", expect.objectContaining({
+      publishBehavior: "PublishImmediately",
+    }));
+  });
+});
+
+describe("createPlatformEventField", () => {
+  it("creates CustomField with event __e prefix", async () => {
+    const { conn, mocks } = createMockConnection();
+    await createPlatformEventField(conn, {
+      eventName: "School_Action__e",
+      fieldName: "Action_Type",
+      label: "Action Type",
+      type: "Text",
+      length: 50,
+    });
+    expect(mocks.metadataCreate).toHaveBeenCalledWith("CustomField", expect.objectContaining({
+      fullName: "School_Action__e.Action_Type__c",
+      type: "Text",
+      length: 50,
+    }));
+  });
+
+  it("adds visibleLines for LongTextArea", async () => {
+    const { conn, mocks } = createMockConnection();
+    await createPlatformEventField(conn, {
+      eventName: "Test__e",
+      fieldName: "Payload",
+      label: "Payload",
+      type: "LongTextArea",
+    });
+    const call = mocks.metadataCreate.mock.calls[0][1];
+    expect(call.visibleLines).toBe(6);
+    expect(call.length).toBe(32768);
+  });
+
+  it("creates Checkbox field", async () => {
+    const { conn, mocks } = createMockConnection();
+    await createPlatformEventField(conn, {
+      eventName: "Test__e",
+      fieldName: "Is_Active",
+      label: "Is Active",
+      type: "Checkbox",
+    });
+    expect(mocks.metadataCreate).toHaveBeenCalledWith("CustomField", expect.objectContaining({
+      type: "Checkbox",
+    }));
+  });
+});
+
+describe("publishPlatformEvent", () => {
+  it("posts to /sobjects/EventName__e endpoint", async () => {
+    const { conn } = createMockConnection();
+    await publishPlatformEvent(conn, "School_Action", { Action_Type__c: "Create" });
+    expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
+      method: "POST",
+      url: "/services/data/v62.0/sobjects/School_Action__e",
+    }));
+  });
+
+  it("does not double-append __e", async () => {
+    const { conn } = createMockConnection();
+    await publishPlatformEvent(conn, "Test__e", { Field__c: "value" });
+    expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
+      url: "/services/data/v62.0/sobjects/Test__e",
+    }));
   });
 });

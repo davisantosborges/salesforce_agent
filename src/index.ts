@@ -16,9 +16,14 @@ export {
   updateMetadata,
   deleteMetadata,
   listMetadata,
+  createPlatformEvent,
+  createPlatformEventField,
+  publishPlatformEvent,
 } from "./metadata";
 export type {
   CustomObjectConfig,
+  PlatformEventConfig,
+  PlatformEventFieldConfig,
   CustomFieldConfig,
   PermissionSetConfig,
   CustomTabConfig,

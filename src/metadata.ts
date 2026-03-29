@@ -457,6 +457,109 @@ export async function createRecordType(
   return result;
 }
 
+// --- Platform Event ---
+
+export interface PlatformEventConfig {
+  /** API name without __e suffix (e.g., "School_Action") */
+  name: string;
+  label: string;
+  pluralLabel: string;
+  description?: string;
+  /** HighVolume (default, recommended) or StandardVolume (legacy) */
+  eventType?: "HighVolume" | "StandardVolume";
+  /** PublishAfterCommit (default, transactional) or PublishImmediately */
+  publishBehavior?: "PublishAfterCommit" | "PublishImmediately";
+}
+
+export interface PlatformEventFieldConfig {
+  /** Platform event API name with __e (e.g., "School_Action__e") */
+  eventName: string;
+  /** Field name without __c */
+  fieldName: string;
+  label: string;
+  /** Supported: Text, Number, Checkbox, Date, DateTime, LongTextArea */
+  type: "Text" | "Number" | "Checkbox" | "Date" | "DateTime" | "LongTextArea";
+  length?: number;
+  precision?: number;
+  scale?: number;
+  required?: boolean;
+  description?: string;
+  visibleLines?: number;
+}
+
+export async function createPlatformEvent(
+  conn: Connection,
+  config: PlatformEventConfig
+): Promise<any> {
+  const fullName = config.name.endsWith("__e")
+    ? config.name
+    : `${config.name}__e`;
+
+  const metadata: any = {
+    fullName,
+    label: config.label,
+    pluralLabel: config.pluralLabel,
+    description: config.description || "",
+    deploymentStatus: "Deployed",
+    eventType: config.eventType || "HighVolume",
+    publishBehavior: config.publishBehavior || "PublishAfterCommit",
+  };
+
+  return conn.metadata.create("CustomObject", metadata);
+}
+
+export async function createPlatformEventField(
+  conn: Connection,
+  config: PlatformEventFieldConfig
+): Promise<any> {
+  const eventName = config.eventName.endsWith("__e")
+    ? config.eventName
+    : `${config.eventName}__e`;
+  const fieldName = config.fieldName.endsWith("__c")
+    ? config.fieldName
+    : `${config.fieldName}__c`;
+
+  const metadata: any = {
+    fullName: `${eventName}.${fieldName}`,
+    label: config.label,
+    type: config.type,
+    description: config.description || "",
+    required: config.required || false,
+  };
+
+  if (config.length) metadata.length = config.length;
+  if (config.precision != null) metadata.precision = config.precision;
+  if (config.scale != null) metadata.scale = config.scale;
+
+  if (config.type === "LongTextArea") {
+    metadata.visibleLines = config.visibleLines || 6;
+    metadata.length = config.length || 32768;
+  }
+
+  if (config.type === "Checkbox") {
+    metadata.defaultValue = "false";
+  }
+
+  return conn.metadata.create("CustomField", metadata);
+}
+
+/**
+ * Publish a platform event message via REST API.
+ */
+export async function publishPlatformEvent(
+  conn: Connection,
+  eventName: string,
+  data: Record<string, any>
+): Promise<any> {
+  const name = eventName.endsWith("__e") ? eventName : `${eventName}__e`;
+  return conn.request({
+    method: "POST",
+    url: `/services/data/v62.0/sobjects/${name}`,
+    body: JSON.stringify(data),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 // --- Generic Metadata Deploy ---
 
 export async function readMetadata(
