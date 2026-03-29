@@ -125,6 +125,14 @@ export interface CompleteObjectConfig {
 
   // Permission set
   permissionSetLabel?: string;
+
+  // Lightning App (optional — creates a dedicated app with this object)
+  createApp?: {
+    name: string; // API name e.g. "School_Management"
+    label: string; // Display label e.g. "School Management"
+    description?: string;
+    additionalTabs?: string[]; // Extra tabs e.g. ["standard-Account", "standard-Contact"]
+  };
 }
 
 // --- Step results tracking ---
@@ -426,6 +434,45 @@ export async function createCompleteCustomObject(
       } catch (err: any) {
         addStep(steps, "ValidationRule", "error", `${rule.name}: ${err.message}`);
       }
+    }
+  }
+
+  // Step 10: Lightning App (optional)
+  if (config.createApp) {
+    try {
+      const appTabs = [
+        "standard-home",
+        objApiName,
+        ...(config.createApp.additionalTabs || ["standard-Account", "standard-Contact", "standard-report", "standard-Dashboard"]),
+      ];
+
+      const appResult: any = await conn.metadata.create("CustomApplication", {
+        fullName: config.createApp.name,
+        label: config.createApp.label,
+        description: config.createApp.description || `App for managing ${config.label} records`,
+        navType: "Standard",
+        uiType: "Lightning",
+        tabs: appTabs,
+        formFactors: ["Large", "Small"],
+        isNavAutoTempTabsDisabled: false,
+        isNavPersonalizationDisabled: false,
+      });
+
+      if (appResult.success) {
+        addStep(steps, "LightningApp", "success", `Created "${config.createApp.label}" app with ${appTabs.length} tabs`);
+
+        // Grant visibility to Admin profile
+        await conn.metadata.update("Profile", {
+          fullName: "Admin",
+          applicationVisibilities: [
+            { application: config.createApp.name, default: false, visible: true },
+          ],
+        });
+      } else {
+        addStep(steps, "LightningApp", "error", `Failed: ${JSON.stringify(appResult.errors)}`);
+      }
+    } catch (err: any) {
+      addStep(steps, "LightningApp", "error", `Exception: ${err.message}`);
     }
   }
 
