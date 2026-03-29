@@ -1,0 +1,32 @@
+{
+  "name": "salesforce_interaction",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "run": "tsx",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:functional": "tsx src/run-functional-tests.ts",
+    "test:auth": "tsx src/test-auth.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@types/node": "^25.5.0",
+    "dotenv": "^17.3.1",
+    "jsforce": "^3.10.14",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.2",
+    "vitest": "^4.1.2"
+  }
+}
