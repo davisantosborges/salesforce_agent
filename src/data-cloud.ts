@@ -234,6 +234,100 @@ export async function queryDataCloud(
   });
 }
 
+// ── Calculated Insights (CIO) via MktCalcInsightObjectDef ──
+
+export interface CalculatedInsightConfig {
+  /** API name (e.g., "School_City_Summary") */
+  fullName: string;
+  /** Display label */
+  label: string;
+  /** Description of the insight */
+  description?: string;
+  /**
+   * SQL expression. Use __dll suffix for DLOs, __dlm for DMOs.
+   * Prefix field names with table name (e.g., School_c_Home__dll.City_c__c).
+   * Alias output columns with __c suffix (e.g., as city__c).
+   */
+  expression: string;
+}
+
+/**
+ * Create a Calculated Insight via MktCalcInsightObjectDef metadata.
+ *
+ * This is the correct way to create SQL-based aggregations/transforms
+ * in Data Cloud. CIOs operate on DLOs (__dll) or DMOs (__dlm) and
+ * produce queryable insight objects.
+ *
+ * SQL pattern:
+ *   SELECT Table__dll.Field__c as alias__c, AGG(Table__dll.Field__c) as alias__c
+ *   FROM Table__dll
+ *   GROUP BY Table__dll.Field__c
+ */
+export async function createCalculatedInsight(
+  conn: Connection,
+  config: CalculatedInsightConfig
+): Promise<any> {
+  return conn.metadata.create("MktCalcInsightObjectDef" as any, {
+    fullName: config.fullName,
+    creationType: "Custom",
+    description: config.description || "",
+    expression: config.expression,
+    masterLabel: config.label,
+  });
+}
+
+/**
+ * Read a Calculated Insight's metadata.
+ */
+export async function readCalculatedInsight(
+  conn: Connection,
+  fullName: string
+): Promise<any> {
+  return conn.metadata.read("MktCalcInsightObjectDef" as any, fullName);
+}
+
+/**
+ * List all Calculated Insights.
+ */
+export async function listCalculatedInsights(
+  conn: Connection
+): Promise<any[]> {
+  const result = await conn.metadata.list([{ type: "MktCalcInsightObjectDef" }]);
+  return Array.isArray(result) ? result : result ? [result] : [];
+}
+
+/**
+ * Delete a Calculated Insight.
+ */
+export async function deleteCalculatedInsight(
+  conn: Connection,
+  fullName: string
+): Promise<any> {
+  return conn.metadata.delete("MktCalcInsightObjectDef" as any, fullName);
+}
+
+// ── ObjectSourceTargetMap (DLO→DMO field mappings) ──
+
+/**
+ * List all DLO→DMO field mappings.
+ */
+export async function listFieldMappings(
+  conn: Connection
+): Promise<any[]> {
+  const result = await conn.metadata.list([{ type: "ObjectSourceTargetMap" }]);
+  return Array.isArray(result) ? result : result ? [result] : [];
+}
+
+/**
+ * Read a specific field mapping.
+ */
+export async function readFieldMapping(
+  conn: Connection,
+  fullName: string
+): Promise<any> {
+  return conn.metadata.read("ObjectSourceTargetMap" as any, fullName);
+}
+
 // ── Helpers ──
 
 /**

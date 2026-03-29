@@ -50,6 +50,12 @@ export {
   listDataTransforms,
   getDataTransform,
   queryDataCloud,
+  createCalculatedInsight,
+  readCalculatedInsight,
+  listCalculatedInsights,
+  deleteCalculatedInsight,
+  listFieldMappings,
+  readFieldMapping,
   mapTypeToDloDatatype,
   buildFieldsFromSchema,
 } from "./data-cloud";
@@ -58,4 +64,5 @@ export type {
   DloFieldConfig,
   DloConfig,
   DataTransformConfig,
+  CalculatedInsightConfig,
 } from "./data-cloud";

@@ -1,11 +1,9 @@
 /**
- * Reference: Create a School City Summary transform in Data Cloud.
+ * Reference: Create a School City Summary Calculated Insight in Data Cloud.
  *
- * Transforms School_c_Home DLO → School_City_Summary DLO:
- * - Groups by City, State, Country
- * - Counts schools per city
- * - Sums total students
- * - Averages max capacity
+ * Aggregates School DLO data by city:
+ * - Dimensions: City, State, Country
+ * - Measures: COUNT schools, SUM students, SUM teachers, AVG capacity
  *
  * Usage: npx tsx src/create-school-summary.ts
  */
@@ -15,46 +13,33 @@ import { createDataCloudTransform } from "./skills/data-cloud-transform";
 import type { TransformConfig } from "./skills/data-cloud-transform";
 
 const schoolSummaryConfig: TransformConfig = {
-  targetName: "School_City_Summary",
-  targetLabel: "School City Summary",
-  sourceObjects: ["School_c_Home__dll"],
-  transformType: "Batch",
+  name: "School_City_Summary",
+  label: "School City Summary",
+  description:
+    "Aggregates school data by city: count of schools, total students/teachers, average capacity",
+  sourceTable: "School_c_Home__dll",
 
-  sql: `
-    SELECT
-      City_c__c AS City,
-      State_c__c AS State,
-      Country_c__c AS Country,
-      COUNT(*) AS School_Count,
-      SUM(Number_of_Students_c__c) AS Total_Students,
-      SUM(Number_of_Teachers_c__c) AS Total_Teachers,
-      AVG(Max_Capacity_c__c) AS Avg_Capacity
-    FROM School_c_Home__dll
-    WHERE IsDeleted__c = 'false'
-    GROUP BY City_c__c, State_c__c, Country_c__c
-  `.trim(),
-
-  outputFields: [
-    { name: "City", label: "City", type: "S", isPrimaryKey: true },
-    { name: "State", label: "State", type: "S" },
-    { name: "Country", label: "Country", type: "S" },
-    { name: "School_Count", label: "School Count", type: "N" },
-    { name: "Total_Students", label: "Total Students", type: "N" },
-    { name: "Total_Teachers", label: "Total Teachers", type: "N" },
-    { name: "Avg_Capacity", label: "Average Capacity", type: "N" },
+  dimensions: [
+    { sourceField: "City_c__c", alias: "city" },
+    { sourceField: "State_c__c", alias: "state" },
+    { sourceField: "Country_c__c", alias: "country" },
   ],
 
-  objectCategory: "Salesforce_SFDCReferenceModel_0_93.Related",
+  measures: [
+    { function: "COUNT", sourceField: "*", alias: "school_count" },
+    { function: "SUM", sourceField: "Number_of_Students_c__c", alias: "total_students" },
+    { function: "SUM", sourceField: "Number_of_Teachers_c__c", alias: "total_teachers" },
+    { function: "AVG", sourceField: "Max_Capacity_c__c", alias: "avg_capacity" },
+  ],
 };
 
 async function main() {
   const conn = await login();
   const result = await createDataCloudTransform(conn, schoolSummaryConfig);
 
-  console.log("\n── Step Details ──\n");
+  console.log("── Step Details ──\n");
   for (const step of result.steps) {
-    const icon =
-      step.status === "success" ? "✅" : step.status === "error" ? "❌" : "⏭️";
+    const icon = step.status === "success" ? "✅" : "❌";
     console.log(`${icon} ${step.step}: ${step.detail}`);
   }
 

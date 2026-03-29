@@ -7,9 +7,14 @@ import {
   deleteDataLakeObject,
   listDataTransforms,
   queryDataCloud,
+  createCalculatedInsight,
+  readCalculatedInsight,
+  listCalculatedInsights,
+  deleteCalculatedInsight,
   mapTypeToDloDatatype,
   buildFieldsFromSchema,
 } from "../../src/data-cloud";
+import { buildCioExpression } from "../../src/skills/data-cloud-transform";
 
 describe("createDataLakeObject", () => {
   it("creates DLO with correct MktDataTranObject payload", async () => {
@@ -188,5 +193,101 @@ describe("buildFieldsFromSchema", () => {
     expect(fields).toHaveLength(2);
     expect(fields[0]).toEqual({ name: "City", label: "City", datatype: "S", isPrimaryKey: undefined });
     expect(fields[1]).toEqual({ name: "Count", label: "Count", datatype: "N", isPrimaryKey: true });
+  });
+});
+
+// ── Calculated Insights ──
+
+describe("createCalculatedInsight", () => {
+  it("creates MktCalcInsightObjectDef with correct payload", async () => {
+    const { conn, mocks } = createMockConnection();
+    await createCalculatedInsight(conn, {
+      fullName: "School_City_Summary",
+      label: "School City Summary",
+      description: "Test insight",
+      expression: "SELECT COUNT(*) as count__c FROM School_c_Home__dll",
+    });
+    expect(mocks.metadataCreate).toHaveBeenCalledWith("MktCalcInsightObjectDef", expect.objectContaining({
+      fullName: "School_City_Summary",
+      creationType: "Custom",
+      masterLabel: "School City Summary",
+      description: "Test insight",
+      expression: "SELECT COUNT(*) as count__c FROM School_c_Home__dll",
+    }));
+  });
+});
+
+describe("readCalculatedInsight", () => {
+  it("reads MktCalcInsightObjectDef", async () => {
+    const { conn, mocks } = createMockConnection();
+    await readCalculatedInsight(conn, "School_City_Summary");
+    expect(mocks.metadataRead).toHaveBeenCalledWith("MktCalcInsightObjectDef", "School_City_Summary");
+  });
+});
+
+describe("listCalculatedInsights", () => {
+  it("lists MktCalcInsightObjectDef types", async () => {
+    const { conn, mocks } = createMockConnection();
+    mocks.metadataList.mockResolvedValue([{ fullName: "CI_A" }]);
+    const result = await listCalculatedInsights(conn);
+    expect(mocks.metadataList).toHaveBeenCalledWith([{ type: "MktCalcInsightObjectDef" }]);
+    expect(result).toHaveLength(1);
+  });
+});
+
+describe("deleteCalculatedInsight", () => {
+  it("deletes MktCalcInsightObjectDef", async () => {
+    const { conn, mocks } = createMockConnection();
+    await deleteCalculatedInsight(conn, "School_City_Summary");
+    expect(mocks.metadataDelete).toHaveBeenCalledWith("MktCalcInsightObjectDef", "School_City_Summary");
+  });
+});
+
+// ── CIO SQL Builder ──
+
+describe("buildCioExpression", () => {
+  it("builds correct SQL with dimensions and measures", () => {
+    const sql = buildCioExpression({
+      name: "Test",
+      label: "Test",
+      sourceTable: "School_c_Home__dll",
+      dimensions: [
+        { sourceField: "City_c__c", alias: "city" },
+      ],
+      measures: [
+        { function: "COUNT", sourceField: "*", alias: "school_count" },
+        { function: "SUM", sourceField: "Number_of_Students_c__c", alias: "total_students" },
+      ],
+    });
+    expect(sql).toContain("SELECT");
+    expect(sql).toContain("School_c_Home__dll.City_c__c as city__c");
+    expect(sql).toContain("COUNT(*) as school_count__c");
+    expect(sql).toContain("SUM(School_c_Home__dll.Number_of_Students_c__c) as total_students__c");
+    expect(sql).toContain("FROM School_c_Home__dll");
+    expect(sql).toContain("GROUP BY School_c_Home__dll.City_c__c");
+  });
+
+  it("includes WHERE clause when provided", () => {
+    const sql = buildCioExpression({
+      name: "Test",
+      label: "Test",
+      sourceTable: "School_c_Home__dll",
+      dimensions: [{ sourceField: "City_c__c", alias: "city" }],
+      measures: [{ function: "COUNT", sourceField: "*", alias: "count" }],
+      whereClause: "School_c_Home__dll.Status_c__c = 'Active'",
+    });
+    expect(sql).toContain("WHERE School_c_Home__dll.Status_c__c = 'Active'");
+  });
+
+  it("handles measures-only without GROUP BY", () => {
+    const sql = buildCioExpression({
+      name: "Test",
+      label: "Test",
+      sourceTable: "School_c_Home__dll",
+      dimensions: [],
+      measures: [{ function: "COUNT", sourceField: "*", alias: "total" }],
+    });
+    expect(sql).not.toContain("GROUP BY");
+    expect(sql).toContain("COUNT(*) as total__c");
   });
 });
