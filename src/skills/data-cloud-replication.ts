@@ -2,7 +2,20 @@
  * SKILL: Data Cloud CRM Connector Replication
  *
  * Replicates a Salesforce CRM custom object into Data Cloud via CRM Connector,
- * creates a custom DMO, maps fields, and verifies data flow.
+ * creates a custom DMO, maps fields, and optionally creates Calculated Insights.
+ *
+ * === DATA CLOUD OBJECT HIERARCHY ===
+ *
+ * Data Source → Data Stream → DSO → DLO (__dll) → DMO (__dlm) → CIO
+ *
+ * - DSO: Raw staging (temporary, auto-created)
+ * - DLO: Physical data lake storage (Parquet/S3, auto-created by Data Stream deploy)
+ * - DMO: Virtual harmonized view (created via ObjectSourceTargetMap field mappings)
+ * - CIO: Calculated Insight Object (SQL aggregations via MktCalcInsightObjectDef)
+ *
+ * KEY: DLOs and DMOs CANNOT be created directly via Metadata API.
+ *      They are byproducts of DataStreamDefinition + ObjectSourceTargetMap.
+ *      CIOs CAN be created fully via Metadata API.
  *
  * === PREREQUISITES ===
  * - Data Cloud must be provisioned and enabled in the org
@@ -12,42 +25,46 @@
  *
  * === WORKFLOW ===
  *
- * Phase 1: PRE-FLIGHT CHECKS
+ * Phase 1: PRE-FLIGHT CHECKS (API)
  *   - Verify object exists and has fields via API
  *   - Check Data Cloud is accessible
  *   - Create test record in source object (needed for data to flow)
  *
  * Phase 2: CREATE CRM DATA STREAM (Browser — UI required)
- *   1. Navigate to Data Cloud > Data Streams
- *   2. Click "New"
- *   3. Select "Salesforce CRM" connector
- *   4. Select the target object (e.g., School__c)
- *   5. Select fields to include
- *   6. Configure refresh schedule
- *   7. Deploy the data stream
- *   8. Wait for initial sync to complete
+ *   - DLOs are auto-created when Data Stream is deployed
+ *   - Steps: Data Cloud > Data Streams > New > Salesforce CRM > Select object > Deploy
+ *   - This provisions the __dll DLO in the data lake
  *
- * Phase 3: CREATE CUSTOM DMO & MAP FIELDS (Browser — UI required)
- *   1. Navigate to Data Cloud > Data Model
- *   2. Click "New" to create a custom DMO
- *   3. Name the DMO (e.g., "School")
- *   4. Set category (Other)
- *   5. Map fields from the Data Lake Object to DMO attributes
- *   6. Set primary key
- *   7. Save and deploy
+ * Phase 3: CREATE DMO & MAP FIELDS (Browser — UI required)
+ *   - DMOs are virtual views created via field mappings
+ *   - Steps: Data Stream detail > Data Mapping > Start > Select Objects > New Custom Object
+ *   - ObjectSourceTargetMap metadata is created automatically
  *
- * Phase 4: VERIFY REPLICATION (API + Browser)
- *   1. Check data stream status is "Active" and "Success"
- *   2. Query Data Cloud via ANSI SQL to confirm records exist
- *   3. Verify field values match source object
- *   4. Check DMO in Data Explorer
+ * Phase 4: CREATE CALCULATED INSIGHTS (API — fully programmatic!)
+ *   - CIOs are SQL-based aggregations that CAN be created via Metadata API
+ *   - Uses MktCalcInsightObjectDef metadata type
+ *   - SQL: SELECT Table__dll.Field__c as alias__c, AGG() FROM Table__dll GROUP BY ...
  *
- * Phase 5: TEST (API)
- *   1. Create a new record in source object
- *   2. Trigger data stream refresh
- *   3. Wait for sync
- *   4. Query Data Cloud to verify new record appears
- *   5. Clean up test records
+ * Phase 5: VERIFY REPLICATION (API + Browser)
+ *   - Check data stream status is "Active" and "Success"
+ *   - Query Data Cloud via /ssot/calculated-insights
+ *   - Verify field values match source object
+ *
+ * Phase 6: TEST (API)
+ *   - Create a new record in source object
+ *   - Trigger data stream refresh
+ *   - Wait for sync, query CIO to verify
+ *
+ * === METADATA TYPES REFERENCE ===
+ *
+ * | Component | Metadata Type | API Creatable? |
+ * |-----------|--------------|:-:|
+ * | Data Stream | DataStreamDefinition | ✅ (provisions DLO) |
+ * | DLO metadata | MktDataTranObject | ✅ (metadata only, no __dll) |
+ * | DLO→DMO mapping | ObjectSourceTargetMap | ✅ |
+ * | Calculated Insight | MktCalcInsightObjectDef | ✅ |
+ * | Provisioned DLO (__dll) | N/A | ❌ (UI only via Data Stream deploy) |
+ * | DMO (__dlm) | N/A | ❌ (byproduct of field mapping) |
  *
  * === COMPLEMENTARY QUESTIONS ===
  *
@@ -59,18 +76,19 @@
  * - What's the refresh schedule? (every 15min, hourly, daily)
  * - Should we include formula fields? (they need special handling)
  * - Are there related objects to also replicate?
+ * - What Calculated Insights (aggregations) should be created?
  */
 
 export interface DataCloudReplicationConfig {
   // Source object
-  objectApiName: string; // e.g. "School__c"
-  objectLabel: string; // e.g. "School"
+  objectApiName: string;
+  objectLabel: string;
 
   // Fields to replicate (API names). If empty, replicate all custom fields.
   fields?: string[];
 
-  // DMO configuration
-  dmoName: string; // e.g. "School"
+  // DMO configuration (created via UI mapping)
+  dmoName: string;
   dmoCategory: "Profile" | "Engagement" | "Other";
 
   // Salesforce instance
@@ -79,12 +97,21 @@ export interface DataCloudReplicationConfig {
 
   // Refresh schedule
   refreshSchedule?: "15min" | "hourly" | "daily";
+
+  // Calculated Insights to create after replication (API-driven)
+  calculatedInsights?: Array<{
+    name: string;
+    label: string;
+    description?: string;
+    /** SQL expression using DLO __dll table and field names */
+    expression: string;
+  }>;
 }
 
 export interface DataCloudReplicationStep {
   id: string;
   name: string;
-  phase: "preflight" | "data_stream" | "dmo_mapping" | "verify" | "test";
+  phase: "preflight" | "data_stream" | "dmo_mapping" | "calc_insights" | "verify" | "test";
   type: "api" | "browser" | "hybrid";
   actions: string[];
   verify: string[];
@@ -97,28 +124,24 @@ export const schoolReplicationConfig: DataCloudReplicationConfig = {
   objectApiName: "School__c",
   objectLabel: "School",
   fields: [
-    "Name",
-    "School_Type__c",
-    "Status__c",
-    "School_Code__c",
-    "Founded_Date__c",
-    "Number_of_Students__c",
-    "Number_of_Teachers__c",
-    "Max_Capacity__c",
-    "Phone__c",
-    "Email__c",
-    "Website__c",
-    "Principal_Name__c",
-    "City__c",
-    "State__c",
-    "Postal_Code__c",
-    "Country__c",
+    "Name", "School_Type__c", "Status__c", "School_Code__c",
+    "Founded_Date__c", "Number_of_Students__c", "Number_of_Teachers__c",
+    "Max_Capacity__c", "Phone__c", "Email__c", "Website__c",
+    "Principal_Name__c", "City__c", "State__c", "Postal_Code__c", "Country__c",
   ],
-  dmoName: "School",
+  dmoName: "SchoolCustom",
   dmoCategory: "Other",
   instanceUrl: "https://orgfarm-7b5728161f-dev-ed.develop.my.salesforce.com",
   lightningUrl: "https://orgfarm-7b5728161f-dev-ed.develop.lightning.force.com",
   refreshSchedule: "hourly",
+  calculatedInsights: [
+    {
+      name: "School_City_Summary",
+      label: "School City Summary",
+      description: "Aggregates school data by city: count of schools, total students/teachers, average capacity",
+      expression: "SELECT School_c_Home__dll.City_c__c as city__c, School_c_Home__dll.State_c__c as state__c, School_c_Home__dll.Country_c__c as country__c, COUNT(*) as school_count__c, SUM(School_c_Home__dll.Number_of_Students_c__c) as total_students__c, SUM(School_c_Home__dll.Number_of_Teachers_c__c) as total_teachers__c, AVG(School_c_Home__dll.Max_Capacity_c__c) as avg_capacity__c FROM School_c_Home__dll GROUP BY School_c_Home__dll.City_c__c, School_c_Home__dll.State_c__c, School_c_Home__dll.Country_c__c",
+    },
+  ],
 };
 
 /**
@@ -139,12 +162,10 @@ export function generateReplicationSteps(
     actions: [
       `Run: describeObject(conn, "${config.objectApiName}")`,
       `Confirm object exists with expected fields`,
-      `List all custom field API names`,
     ],
     verify: [
       `Object ${config.objectApiName} exists`,
       `All ${config.fields?.length || "custom"} fields are present`,
-      `Object is createable and queryable`,
     ],
   });
 
@@ -155,242 +176,113 @@ export function generateReplicationSteps(
     type: "api",
     actions: [
       `Create a record in ${config.objectApiName} via REST API`,
-      `Record name: "DC Replication Test"`,
       `Fill key fields with identifiable test data`,
     ],
-    verify: [
-      `Record created successfully with an ID`,
-      `Record is queryable via SOQL`,
-    ],
+    verify: [`Record created successfully with an ID`],
   });
 
-  steps.push({
-    id: "preflight_check_dc",
-    name: "Verify Data Cloud is accessible",
-    phase: "preflight",
-    type: "browser",
-    actions: [
-      `Navigate to ${config.lightningUrl}`,
-      `Open App Launcher > search "Data Cloud"`,
-      `Click Data Cloud app`,
-    ],
-    verify: [
-      `Data Cloud home page loads`,
-      `Data Streams tab is visible in navigation`,
-      `Data Model tab is visible`,
-    ],
-  });
-
-  // ── Phase 2: Create Data Stream ──
+  // ── Phase 2: Create Data Stream (Browser) ──
 
   steps.push({
-    id: "ds_navigate",
-    name: "Navigate to New Data Stream",
+    id: "ds_create",
+    name: "Create CRM Data Stream",
     phase: "data_stream",
     type: "browser",
     actions: [
-      `Click "Data Streams" in the Data Cloud nav bar`,
-      `Click "New" button`,
+      `Data Cloud > Data Streams > New`,
+      `Select "Salesforce CRM" connector`,
+      `Click "View Objects", search for "${config.objectApiName}"`,
+      `Select object, set category to "${config.dmoCategory}"`,
+      `Click Next > Deploy`,
+      `Wait for status to show "Active"`,
     ],
     verify: [
-      `Data stream creation wizard opens`,
-      `Connector selection page is displayed`,
+      `Data stream deployed with status "Active"`,
+      `DLO auto-created: ${config.objectApiName.replace("__c", "_c_Home__dll")}`,
     ],
   });
 
-  steps.push({
-    id: "ds_select_connector",
-    name: "Select Salesforce CRM connector",
-    phase: "data_stream",
-    type: "browser",
-    actions: [
-      `Find and select "Salesforce CRM" as the data connector type`,
-      `Click "Next" or proceed to object selection`,
-    ],
-    verify: [
-      `Salesforce CRM connector is selected`,
-      `Object selection screen appears`,
-    ],
-  });
-
-  steps.push({
-    id: "ds_select_object",
-    name: `Select ${config.objectLabel} object and fields`,
-    phase: "data_stream",
-    type: "browser",
-    actions: [
-      `Search for "${config.objectApiName}" in the object list`,
-      `Select/check "${config.objectApiName}"`,
-      `Expand to see available fields`,
-      ...(config.fields
-        ? [`Select these specific fields: ${config.fields.join(", ")}`]
-        : [`Select all available fields`]),
-      `Click "Next" to proceed`,
-    ],
-    verify: [
-      `${config.objectApiName} is checked/selected`,
-      `Expected fields are selected`,
-    ],
-  });
-
-  steps.push({
-    id: "ds_deploy",
-    name: "Deploy the data stream",
-    phase: "data_stream",
-    type: "browser",
-    actions: [
-      `Review the data stream configuration summary`,
-      `Click "Deploy" or "Save" to activate the data stream`,
-      `Wait for the deployment to complete`,
-    ],
-    verify: [
-      `Data stream appears in the Data Streams list`,
-      `Status shows "Active"`,
-      `Last Run Status eventually shows "Success"`,
-      `Total Records shows >= 1 (the test record)`,
-    ],
-  });
-
-  // ── Phase 3: Create DMO & Map Fields ──
-
-  steps.push({
-    id: "dmo_navigate",
-    name: "Navigate to Data Model",
-    phase: "dmo_mapping",
-    type: "browser",
-    actions: [
-      `Click "Data Model" in the Data Cloud nav bar`,
-      `Click "New" button to create a new DMO`,
-    ],
-    verify: [
-      `DMO creation form/wizard opens`,
-    ],
-  });
+  // ── Phase 3: Create DMO & Map Fields (Browser) ──
 
   steps.push({
     id: "dmo_create",
-    name: `Create ${config.dmoName} DMO`,
+    name: "Create DMO and map fields",
     phase: "dmo_mapping",
     type: "browser",
     actions: [
+      `On Data Stream detail page, click "Start" under Data Mapping`,
+      `Click "Select Objects" > "Custom Data Model" tab`,
+      `Click "+ New Custom Object"`,
       `Set Object Label to "${config.dmoName}"`,
-      `Set Object API Name (auto-generated or manual)`,
-      `Set Category to "${config.dmoCategory}"`,
-      `Save the DMO`,
+      `All fields pre-selected — click "Save"`,
+      `Click "Save & Close" on mapping canvas`,
     ],
     verify: [
-      `DMO "${config.dmoName}" is created`,
-      `DMO appears in the Data Model list`,
+      `DMO "${config.dmoName}" created with mapped fields`,
+      `ObjectSourceTargetMap metadata created automatically`,
     ],
   });
 
-  steps.push({
-    id: "dmo_map_fields",
-    name: "Map fields from Data Lake Object to DMO",
-    phase: "dmo_mapping",
-    type: "browser",
-    actions: [
-      `Open the newly created DMO`,
-      `Go to the field mapping section`,
-      `Map the Data Lake Object (from the ${config.objectApiName} data stream) as the source`,
-      `Map each source field to a DMO attribute:`,
-      ...(config.fields || []).map(
-        (f) => `  - Map "${f}" → DMO attribute "${f}"`
-      ),
-      `Set the primary key (typically "Id" or "School_Code__c")`,
-      `Save the mapping`,
-    ],
-    verify: [
-      `All fields are mapped`,
-      `Primary key is set`,
-      `DMO status shows "Ready" or "Mapped"`,
-    ],
-  });
+  // ── Phase 4: Create Calculated Insights (API) ──
 
-  // ── Phase 4: Verify ──
+  if (config.calculatedInsights && config.calculatedInsights.length > 0) {
+    for (const ci of config.calculatedInsights) {
+      steps.push({
+        id: `ci_create_${ci.name}`,
+        name: `Create Calculated Insight: ${ci.label}`,
+        phase: "calc_insights",
+        type: "api",
+        actions: [
+          `conn.metadata.create("MktCalcInsightObjectDef", {`,
+          `  fullName: "${ci.name}",`,
+          `  creationType: "Custom",`,
+          `  expression: "${ci.expression.substring(0, 80)}...",`,
+          `  masterLabel: "${ci.label}",`,
+          `})`,
+        ],
+        verify: [
+          `CIO "${ci.name}" created successfully`,
+          `Verified via conn.metadata.read("MktCalcInsightObjectDef", "${ci.name}")`,
+        ],
+      });
+    }
+  }
+
+  // ── Phase 5: Verify ──
 
   steps.push({
-    id: "verify_data_stream",
-    name: "Verify data stream status",
+    id: "verify_stream",
+    name: "Verify data stream and replication",
     phase: "verify",
-    type: "browser",
+    type: "hybrid",
     actions: [
-      `Navigate to Data Streams`,
-      `Find the ${config.objectApiName} data stream`,
-      `Check its status`,
+      `Check data stream status via browser or /ssot/data-streams`,
+      `Verify DLO has records via Data Explorer`,
+      `Verify CIO results via /ssot/calculated-insights`,
     ],
     verify: [
-      `Data Stream Status: Active`,
-      `Last Run Status: Success`,
+      `Data Stream: Active, Last Run: Success`,
       `Total Records >= 1`,
-      `Last Refreshed: recent timestamp`,
+      `CIO queryable with expected dimensions/measures`,
     ],
   });
 
-  steps.push({
-    id: "verify_data_explorer",
-    name: "Verify data in Data Explorer",
-    phase: "verify",
-    type: "browser",
-    actions: [
-      `Navigate to Data Explorer`,
-      `Select the ${config.dmoName} DMO or Data Lake Object`,
-      `Run a query or browse the data`,
-    ],
-    verify: [
-      `Test record "DC Replication Test" appears in the data`,
-      `Field values match the source record`,
-    ],
-  });
+  // ── Phase 6: Test ──
 
   steps.push({
-    id: "verify_api_query",
-    name: "Query Data Cloud via API",
-    phase: "verify",
-    type: "api",
-    actions: [
-      `Use the Data Cloud Query V2 API:`,
-      `POST /services/data/v62.0/ssot/queryv2`,
-      `Query: SELECT * FROM <DLO_or_DMO_name> LIMIT 10`,
-      `Parse the results`,
-    ],
-    verify: [
-      `Query returns records`,
-      `Test record data matches source`,
-      `Field types are correct`,
-    ],
-  });
-
-  // ── Phase 5: Test ──
-
-  steps.push({
-    id: "test_create_record",
-    name: "Create new record and verify replication",
+    id: "test_replication",
+    name: "Test end-to-end replication",
     phase: "test",
     type: "hybrid",
     actions: [
-      `Create a new record in ${config.objectApiName}: "DC Test Record 2"`,
-      `Trigger data stream refresh (or wait for scheduled refresh)`,
-      `Query Data Cloud to check if new record appears`,
+      `Create new record in ${config.objectApiName}`,
+      `Trigger data stream refresh`,
+      `Query CIO to verify aggregation updated`,
+      `Clean up test records`,
     ],
     verify: [
-      `New record appears in Data Cloud within expected timeframe`,
-      `All field values match`,
-    ],
-  });
-
-  steps.push({
-    id: "test_cleanup",
-    name: "Clean up test records",
-    phase: "test",
-    type: "api",
-    actions: [
-      `Delete "DC Replication Test" from ${config.objectApiName}`,
-      `Delete "DC Test Record 2" from ${config.objectApiName}`,
-      `Note: Data Cloud records may persist until next sync`,
-    ],
-    verify: [
-      `Source records deleted`,
+      `New record appears in Data Cloud after refresh`,
+      `CIO aggregation reflects the new data`,
     ],
   });
 
@@ -404,28 +296,10 @@ export function getReplicationQuestions(
   partial: Partial<DataCloudReplicationConfig>
 ): string[] {
   const questions: string[] = [];
-
-  if (!partial.objectApiName) {
-    questions.push("What is the API name of the object to replicate? (e.g., School__c)");
-  }
-  if (!partial.objectLabel) {
-    questions.push("What is the display label for this object?");
-  }
-  if (!partial.dmoName) {
-    questions.push("What should the Data Model Object (DMO) be named?");
-  }
-  if (!partial.dmoCategory) {
-    questions.push("What category for the DMO? (Profile, Engagement, or Other)");
-  }
-  if (!partial.fields) {
-    questions.push(
-      "Which fields should be replicated? (all custom fields, or a specific list)"
-    );
-  }
-  if (!partial.refreshSchedule) {
-    questions.push("How often should data refresh? (every 15 minutes, hourly, daily)");
-  }
-
+  if (!partial.objectApiName) questions.push("What object to replicate? (API name, e.g., School__c)");
+  if (!partial.dmoName) questions.push("What should the DMO be named?");
+  if (!partial.dmoCategory) questions.push("Category? (Profile, Engagement, or Other)");
+  if (!partial.calculatedInsights) questions.push("What aggregations/insights should be calculated? (e.g., count by city, sum students)");
   return questions;
 }
 
@@ -437,18 +311,18 @@ export function printReplicationPlan(config: DataCloudReplicationConfig): void {
 
   console.log("╔═══════════════════════════════════════════════════════╗");
   console.log(`║  Data Cloud Replication Plan: ${config.objectLabel} (${config.objectApiName})`);
-  console.log(`║  DMO: ${config.dmoName} | Category: ${config.dmoCategory}`);
-  console.log(`║  Fields: ${config.fields?.length || "all"} | Refresh: ${config.refreshSchedule || "default"}`);
+  console.log(`║  DMO: ${config.dmoName} | CIOs: ${config.calculatedInsights?.length || 0}`);
   console.log(`║  Steps: ${steps.length}`);
   console.log("╚═══════════════════════════════════════════════════════╝\n");
 
-  const phases = ["preflight", "data_stream", "dmo_mapping", "verify", "test"];
+  const phases = ["preflight", "data_stream", "dmo_mapping", "calc_insights", "verify", "test"];
   const phaseLabels: Record<string, string> = {
-    preflight: "Phase 1: Pre-flight Checks",
-    data_stream: "Phase 2: Create CRM Data Stream",
-    dmo_mapping: "Phase 3: Create DMO & Map Fields",
-    verify: "Phase 4: Verify Replication",
-    test: "Phase 5: Test",
+    preflight: "Phase 1: Pre-flight Checks (API)",
+    data_stream: "Phase 2: Create CRM Data Stream (Browser)",
+    dmo_mapping: "Phase 3: Create DMO & Map Fields (Browser)",
+    calc_insights: "Phase 4: Create Calculated Insights (API)",
+    verify: "Phase 5: Verify Replication",
+    test: "Phase 6: Test",
   };
 
   for (const phase of phases) {
@@ -456,18 +330,12 @@ export function printReplicationPlan(config: DataCloudReplicationConfig): void {
     if (phaseSteps.length === 0) continue;
 
     console.log(`── ${phaseLabels[phase]} ──\n`);
-
     for (const step of phaseSteps) {
-      const typeIcon = step.type === "api" ? "🔧" : step.type === "browser" ? "🌐" : "🔄";
-      console.log(`  ${typeIcon} ${step.name}`);
-      console.log(`     Actions:`);
-      for (const action of step.actions) {
-        console.log(`       → ${action}`);
-      }
+      const icon = step.type === "api" ? "🔧" : step.type === "browser" ? "🌐" : "🔄";
+      console.log(`  ${icon} ${step.name}`);
+      for (const action of step.actions) console.log(`     → ${action}`);
       console.log(`     Verify:`);
-      for (const check of step.verify) {
-        console.log(`       ✓ ${check}`);
-      }
+      for (const check of step.verify) console.log(`     ✓ ${check}`);
       console.log("");
     }
   }
