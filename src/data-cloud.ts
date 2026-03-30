@@ -328,6 +328,167 @@ export async function readFieldMapping(
   return conn.metadata.read("ObjectSourceTargetMap" as any, fullName);
 }
 
+// ── Segmentation (MarketSegmentDefinition) ──
+
+/**
+ * Segment filter criteria — JSON structure used in includeCriteria.
+ * This is the filter expression that defines which records are in the segment.
+ *
+ * Pattern from existing segments:
+ * {
+ *   "filter": { type, subject: { objectApiName, fieldApiName }, operator, value },
+ *   "containerObjectApiName": "DMO__dlm",
+ *   "path": [[source, target]],
+ *   ...
+ * }
+ */
+export interface SegmentFilterCriteria {
+  type: "TextComparison" | "NumberComparison" | "DateComparison" | "BooleanComparison" | "NumberAggregation";
+  subject: {
+    objectApiName: string; // DMO name e.g. "SchoolCustom__dlm"
+    fieldApiName: string;  // Field name e.g. "Status_c__c"
+  };
+  operator: string; // "equals", "not equals", "greater than", "less than", "contains", etc.
+  value: string | number | boolean;
+  selfReference?: boolean;
+  subjectFieldDataType?: string;
+  subjectFieldBusinessType?: string;
+  subjectFieldSourceType?: string;
+}
+
+export interface SegmentConfig {
+  /** API name for the segment (e.g., "Active_High_Schools") */
+  fullName: string;
+  /** Display label */
+  label: string;
+  /** DMO to segment on (must be Profile or Engagement category) */
+  segmentOn: string;
+  /** Filter criteria as JSON object — will be stringified */
+  includeCriteria: {
+    filter: SegmentFilterCriteria;
+    containerObjectApiName?: string;
+    path?: any[];
+    joinPath?: any[];
+    type?: string;
+  };
+  /** Segment type — typically "UI" */
+  segmentType?: string;
+}
+
+/**
+ * Create a segment via MarketSegmentDefinition metadata.
+ *
+ * The includeCriteria must be a JSON string containing the filter expression.
+ * Use buildSegmentCriteria() to construct it from simple inputs.
+ */
+export async function createSegment(
+  conn: Connection,
+  config: SegmentConfig
+): Promise<any> {
+  return conn.metadata.create("MarketSegmentDefinition" as any, {
+    fullName: config.fullName,
+    masterLabel: config.label,
+    segmentOn: config.segmentOn,
+    segmentType: config.segmentType || "UI",
+    includeCriteria: JSON.stringify(config.includeCriteria),
+  });
+}
+
+/**
+ * Read a segment definition.
+ */
+export async function readSegment(
+  conn: Connection,
+  fullName: string
+): Promise<any> {
+  return conn.metadata.read("MarketSegmentDefinition" as any, fullName);
+}
+
+/**
+ * List all segments.
+ */
+export async function listSegments(
+  conn: Connection
+): Promise<any[]> {
+  const result = await conn.metadata.list([{ type: "MarketSegmentDefinition" }]);
+  return Array.isArray(result) ? result : result ? [result] : [];
+}
+
+/**
+ * Delete a segment.
+ */
+export async function deleteSegment(
+  conn: Connection,
+  fullName: string
+): Promise<any> {
+  return conn.metadata.delete("MarketSegmentDefinition" as any, fullName);
+}
+
+/**
+ * List segments via /ssot/segments REST API (includes runtime status).
+ */
+export async function listSegmentsRest(
+  conn: Connection
+): Promise<any> {
+  return conn.request({
+    method: "GET",
+    url: "/services/data/v62.0/ssot/segments",
+  });
+}
+
+/**
+ * Publish (activate) a segment.
+ */
+export async function publishSegment(
+  conn: Connection,
+  segmentApiName: string
+): Promise<any> {
+  return conn.request({
+    method: "POST",
+    url: `/services/data/v62.0/ssot/segments/${segmentApiName}/actions/publish`,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+/**
+ * Build a simple filter criteria for a segment.
+ * Convenience function for common comparison patterns.
+ */
+export function buildSegmentFilter(
+  dmoName: string,
+  fieldName: string,
+  operator: string,
+  value: string | number | boolean,
+  dataType: "TEXT" | "NUMBER" | "DATE" | "BOOLEAN" = "TEXT"
+): SegmentConfig["includeCriteria"] {
+  const typeMap: Record<string, string> = {
+    TEXT: "TextComparison",
+    NUMBER: "NumberComparison",
+    DATE: "DateComparison",
+    BOOLEAN: "BooleanComparison",
+  };
+
+  return {
+    filter: {
+      type: typeMap[dataType] as any,
+      subject: {
+        objectApiName: dmoName,
+        fieldApiName: fieldName,
+      },
+      operator,
+      value,
+      selfReference: false,
+      subjectFieldDataType: dataType,
+      subjectFieldBusinessType: dataType,
+      subjectFieldSourceType: "DIRECT",
+    },
+    containerObjectApiName: dmoName,
+    path: null as any,
+    joinPath: null as any,
+    type: typeMap[dataType],
+  };
+}
+
 // ── Helpers ──
 
 /**

@@ -61,6 +61,13 @@ export {
   deleteCalculatedInsight,
   listFieldMappings,
   readFieldMapping,
+  createSegment,
+  readSegment,
+  listSegments,
+  deleteSegment,
+  listSegmentsRest,
+  publishSegment,
+  buildSegmentFilter,
   mapTypeToDloDatatype,
   buildFieldsFromSchema,
 } from "./data-cloud";
@@ -70,4 +77,6 @@ export type {
   DloConfig,
   DataTransformConfig,
   CalculatedInsightConfig,
+  SegmentConfig,
+  SegmentFilterCriteria,
 } from "./data-cloud";

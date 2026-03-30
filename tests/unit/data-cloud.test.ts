@@ -11,6 +11,11 @@ import {
   readCalculatedInsight,
   listCalculatedInsights,
   deleteCalculatedInsight,
+  createSegment,
+  readSegment,
+  listSegments,
+  deleteSegment,
+  buildSegmentFilter,
   mapTypeToDloDatatype,
   buildFieldsFromSchema,
 } from "../../src/data-cloud";
@@ -289,5 +294,92 @@ describe("buildCioExpression", () => {
     });
     expect(sql).not.toContain("GROUP BY");
     expect(sql).toContain("COUNT(*) as total__c");
+  });
+});
+
+// ── Segmentation ──
+
+describe("createSegment", () => {
+  it("creates MarketSegmentDefinition with correct payload", async () => {
+    const { conn, mocks } = createMockConnection();
+    await createSegment(conn, {
+      fullName: "Active_Schools",
+      label: "Active Schools",
+      segmentOn: "SchoolCustom__dlm",
+      includeCriteria: {
+        filter: {
+          type: "TextComparison",
+          subject: { objectApiName: "SchoolCustom__dlm", fieldApiName: "Status_c__c" },
+          operator: "equals",
+          value: "Active",
+        },
+        containerObjectApiName: "SchoolCustom__dlm",
+      },
+    });
+    expect(mocks.metadataCreate).toHaveBeenCalledWith("MarketSegmentDefinition", expect.objectContaining({
+      fullName: "Active_Schools",
+      masterLabel: "Active Schools",
+      segmentOn: "SchoolCustom__dlm",
+      segmentType: "UI",
+    }));
+    // includeCriteria should be a string
+    const call = mocks.metadataCreate.mock.calls[0][1];
+    expect(typeof call.includeCriteria).toBe("string");
+    expect(JSON.parse(call.includeCriteria).filter.operator).toBe("equals");
+  });
+});
+
+describe("readSegment", () => {
+  it("reads MarketSegmentDefinition", async () => {
+    const { conn, mocks } = createMockConnection();
+    await readSegment(conn, "Active_Schools");
+    expect(mocks.metadataRead).toHaveBeenCalledWith("MarketSegmentDefinition", "Active_Schools");
+  });
+});
+
+describe("listSegments", () => {
+  it("lists MarketSegmentDefinition types", async () => {
+    const { conn, mocks } = createMockConnection();
+    mocks.metadataList.mockResolvedValue([{ fullName: "Seg_A" }]);
+    const result = await listSegments(conn);
+    expect(mocks.metadataList).toHaveBeenCalledWith([{ type: "MarketSegmentDefinition" }]);
+    expect(result).toHaveLength(1);
+  });
+});
+
+describe("deleteSegment", () => {
+  it("deletes MarketSegmentDefinition", async () => {
+    const { conn, mocks } = createMockConnection();
+    await deleteSegment(conn, "Active_Schools");
+    expect(mocks.metadataDelete).toHaveBeenCalledWith("MarketSegmentDefinition", "Active_Schools");
+  });
+});
+
+describe("buildSegmentFilter", () => {
+  it("builds text comparison filter", () => {
+    const criteria = buildSegmentFilter(
+      "SchoolCustom__dlm", "Status_c__c", "equals", "Active", "TEXT"
+    );
+    expect(criteria.filter.type).toBe("TextComparison");
+    expect(criteria.filter.subject.objectApiName).toBe("SchoolCustom__dlm");
+    expect(criteria.filter.subject.fieldApiName).toBe("Status_c__c");
+    expect(criteria.filter.operator).toBe("equals");
+    expect(criteria.filter.value).toBe("Active");
+    expect(criteria.containerObjectApiName).toBe("SchoolCustom__dlm");
+  });
+
+  it("builds number comparison filter", () => {
+    const criteria = buildSegmentFilter(
+      "SchoolCustom__dlm", "Number_of_Students_c__c", "greater than", 500, "NUMBER"
+    );
+    expect(criteria.filter.type).toBe("NumberComparison");
+    expect(criteria.filter.value).toBe(500);
+  });
+
+  it("builds boolean comparison filter", () => {
+    const criteria = buildSegmentFilter(
+      "SchoolCustom__dlm", "Is_Active__c", "equals", true, "BOOLEAN"
+    );
+    expect(criteria.filter.type).toBe("BooleanComparison");
   });
 });
