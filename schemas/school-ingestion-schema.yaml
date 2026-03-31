@@ -1,0 +1,61 @@
+openapi: 3.0.3
+info:
+  title: School Data Ingestion
+  description: Schema for ingesting School data into Data Cloud via Ingestion API
+  version: 1.0.0
+components:
+  schemas:
+    SchoolProfile:
+      type: object
+      properties:
+        SchoolId:
+          type: string
+          maxLength: 18
+        SchoolCode:
+          type: string
+          maxLength: 20
+        SchoolName:
+          type: string
+          maxLength: 255
+        SchoolType:
+          type: string
+          maxLength: 50
+        Status:
+          type: string
+          maxLength: 20
+        NumberOfStudents:
+          type: integer
+        NumberOfTeachers:
+          type: integer
+        MaxCapacity:
+          type: integer
+        Phone:
+          type: string
+          maxLength: 40
+        Email:
+          type: string
+          maxLength: 100
+        Website:
+          type: string
+          maxLength: 255
+        PrincipalName:
+          type: string
+          maxLength: 100
+        Street:
+          type: string
+          maxLength: 255
+        City:
+          type: string
+          maxLength: 80
+        State:
+          type: string
+          maxLength: 80
+        PostalCode:
+          type: string
+          maxLength: 20
+        Country:
+          type: string
+          maxLength: 80
+        LastModified:
+          type: string
+          format: date-time
