@@ -8,14 +8,32 @@ A TypeScript toolkit for configuring Salesforce orgs programmatically using Meta
 - **Data Cloud** — CRM Connector replication, Ingestion API, Calculated Insights (CIO), segmentation, activation, identity resolution, consent management, Data Kits
 - **Agentforce** — AI agent with topics, actions, Apex invocable methods, Agent Script deployment
 - **Testing** — 115 unit tests, 29 integration tests, 8 browser-based functional tests
-- **13 Claude Code skills** as `/slash-commands` with auto-discovery
+- **14 Claude Code skills** as `/slash-commands` with auto-discovery
 
 ## Quick Start
 
 ```bash
 npm install
+```
+
+Then use the **setup skill** — Claude Code will guide you interactively:
+
+```
+/setup-salesforce
+```
+
+This walks you through:
+1. Connecting to your Salesforce org (OAuth token)
+2. Creating the `.env` file with credentials
+3. Authenticating `sf` CLI (for Agentforce)
+4. Setting up Data Cloud Ingestion API (optional)
+5. Running tests to verify everything works
+
+Or do it manually:
+
+```bash
 cp .env.example .env
-# Fill in .env with your Salesforce credentials (see Auth section)
+# Fill: SF_ACCESS_TOKEN, SF_INSTANCE_URL, SF_REFRESH_TOKEN
 npm run test:auth    # Verify connection
 npm test             # Run all tests
 ```
@@ -36,10 +54,11 @@ Custom Object → Platform Event → Data Cloud → Agentforce Agent
                                Data Kit (deploy)
 ```
 
-## Skills (13 slash commands)
+## Skills (14 slash commands)
 
 | Skill | Command | API |
 |-------|:-------:|:---:|
+| **Setup** | `/setup-salesforce` | Interactive guide |
 | Custom Object | `/create-custom-object` | Metadata |
 | Platform Event | `/platform-event` | Metadata + REST |
 | Data Cloud | `/data-cloud` | Metadata + Browser |
