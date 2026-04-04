@@ -59,22 +59,39 @@ await conn.tooling.create("ApexClass", {
 });
 ```
 
-## GenAiPlanner (Agent Wiring)
+## GenAiPlannerBundle (Agent Wiring) — v66.0+
 
-**⚠️ GenAiPlanner create/update has internal errors via API in this org.**
-Use Agentforce Studio UI to assign topics to agents:
-1. Open Agentforce Studio
-2. Edit or create an agent
-3. Add the "School Management" topic
-4. The Publish School Action will be available automatically
+**Works via Metadata API with v66.0!** (failed with v62.0)
 
-Required fields: `fullName`, `masterLabel`, `description`, `plannerType: "AiCopilot__ReAct"`, `genAiPlugins[]`, `genAiFunctions[]`
+```typescript
+// GenAiPlannerBundle — creates the agent reasoning container
+await conn.metadata.create("GenAiPlannerBundle", {
+  fullName: "My_Agent_v1",
+  masterLabel: "My Agent",
+  description: "Agent description",
+  plannerType: "AiCopilot__ReAct",  // required
+});
+```
+
+**Or use sf CLI (recommended — handles all dependencies):**
+```bash
+sf agent generate authoring-bundle --no-spec --api-name My_Agent -o myOrg
+# Edit the .agent file
+sf agent publish authoring-bundle -o myOrg --api-name My_Agent
+```
+
+Valid plannerTypes: `AiCopilot__ReAct`, `Atlas__ConcurrentMultiAgentOrchestration`
+
+**Note:** `GenAiPlanner` (old type) still has internal errors via create — use `GenAiPlannerBundle` (v64+) or `sf agent` CLI instead.
 
 ## Gotchas
 
+- **API version matters**: GenAiPlannerBundle requires v66.0+, GenAiPlanner is deprecated
 - Apex classes deploy via Tooling API (`conn.tooling.create("ApexClass", ...)`)
 - GenAiFunction/GenAiPlugin deploy via Metadata API (`conn.metadata.create(...)`)
-- GenAiPlanner may fail with internal errors — use UI as fallback
 - `invocationTargetType`: "apex" for `@InvocableMethod`, "flow" for Flows
 - `isConfirmationRequired: "true"` — agent asks user to confirm before executing
+- Agent Script uses pipe template syntax (`-> |`) not quoted strings for reasoning instructions
+- Escalation actions need explicit `description`
+- `sf agent publish` creates Bot + BotVersion + GenAiPlannerBundle from a single .agent file
 - Topic instructions are critical — they guide the Atlas Reasoning Engine
