@@ -5,6 +5,8 @@ description: Create Agentforce agent components — topics (GenAiPlugin), action
 
 # Agentforce Integration
 
+**Full reference:** [docs/AGENTFORCE_DEVELOPER_REFERENCE.md](../../../docs/AGENTFORCE_DEVELOPER_REFERENCE.md) — CLI commands, metadata types, Agent Script syntax, API endpoints, version history
+
 **Module:** `src/data-cloud.ts` (Agentforce metadata), Apex via Tooling API
 
 ## Concepts
