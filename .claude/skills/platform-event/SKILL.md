@@ -49,7 +49,7 @@ await updateEventProperty(conn, "School_Action__e", { publishBehavior: "PublishI
 - Supported types: **Text, Number, Checkbox, Date, DateTime, LongTextArea**
 - NOT supported: Picklist, Lookup, Formula, RichText
 - Checkbox needs `defaultValue: "false"` (auto-set by tool)
-- Publish: `POST /services/data/v62.0/sobjects/EventName__e`
+- Publish: `POST /services/data/v66.0/sobjects/EventName__e`
 - Subscribe: Apex triggers (after insert), Flows, CometD, Pub/Sub API
 - Retention: 72h (HighVolume), 24h (StandardVolume)
 

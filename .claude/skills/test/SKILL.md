@@ -8,7 +8,7 @@ description: Run and write automated tests — Vitest unit tests, integration te
 ## Commands
 
 ```bash
-npm test                  # All 78 unit + 29 integration tests
+npm test                  # All 103 unit + 29 integration tests
 npm run test:unit         # Unit only (<1s, no org needed)
 npm run test:integration  # Integration (needs .env, ~14s)
 npm run test:functional   # Browser test plan for Claude Code
@@ -24,7 +24,7 @@ tests/
     mock-connection.ts    # createMockConnection() — mock jsforce Connection
     test-config.ts        # Reusable test configs
     cleanup.ts            # TestCleanupRegistry + generateTestName()
-  unit/                   # 78 tests: metadata, tooling, auth, skills, data-cloud
+  unit/                   # 103 tests: metadata, tooling, auth, skills, data-cloud, agentforce
   integration/            # 29 tests: real org CRUD, auto-cleanup
 ```
 
