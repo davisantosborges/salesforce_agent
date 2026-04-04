@@ -1,13 +1,14 @@
 # Salesforce Interaction Toolkit
 
-A TypeScript toolkit for configuring Salesforce orgs programmatically using Metadata API, Tooling API, and browser automation. Built to test Claude Code's ability to act as a Salesforce configuration agent.
+A TypeScript toolkit for configuring Salesforce orgs programmatically using Metadata API, Tooling API, REST API, and browser automation. Built to test Claude Code's ability to act as a Salesforce configuration agent.
 
 ## What it does
 
-- Creates complete custom objects with all supporting components (fields, tabs, layouts, list views, permissions, validation rules, Lightning apps)
-- Replicates CRM objects to Data Cloud via CRM Connector
-- Verifies configurations through three test layers: unit, integration, and functional (browser)
-- Provides reusable skills for repeatable Salesforce configuration workflows
+- **CRM Configuration** — custom objects, fields, tabs, layouts, permissions, validation rules, Lightning apps, platform events
+- **Data Cloud** — CRM Connector replication, Ingestion API, Calculated Insights (CIO), segmentation, activation, identity resolution, consent management, Data Kits
+- **Agentforce** — AI agent with topics, actions, Apex invocable methods, Agent Script deployment
+- **Testing** — 115 unit tests, 29 integration tests, 8 browser-based functional tests
+- **13 Claude Code skills** as `/slash-commands` with auto-discovery
 
 ## Quick Start
 
@@ -19,161 +20,116 @@ npm run test:auth    # Verify connection
 npm test             # Run all tests
 ```
 
+## Pipeline
+
+```
+Custom Object → Platform Event → Data Cloud → Agentforce Agent
+                                    │
+                    Ingest → DLO → DMO → Identity Resolution
+                                    │         │
+                                   CIO    Unified Profile
+                                    │         │
+                                 Segment → Activation
+                                    │
+                              Consent Filter
+                                    │
+                               Data Kit (deploy)
+```
+
+## Skills (13 slash commands)
+
+| Skill | Command | API |
+|-------|:-------:|:---:|
+| Custom Object | `/create-custom-object` | Metadata |
+| Platform Event | `/platform-event` | Metadata + REST |
+| Data Cloud | `/data-cloud` | Metadata + Browser |
+| Ingestion API | `/ingestion-api` | REST (DC token) |
+| Segmentation | `/segmentation` | Metadata + REST |
+| Activation | `/activation` | REST |
+| Identity Resolution | `/identity-resolution` | REST |
+| Data Kits | `/data-kits` | Metadata |
+| Consent | `/consent` | REST |
+| Agentforce | `/agentforce` | Metadata + Tooling + CLI |
+| Functional Test | `/functional-test` | Browser |
+| Testing | `/test` | Vitest |
+
 ## Auth
 
-The toolkit supports three authentication methods (tried in order):
+Uses OAuth access token with auto-refresh. SOAP login is **disabled** in this org.
 
-| Method | Env Vars | When to use |
-|--------|----------|-------------|
-| **Access Token** | `SF_ACCESS_TOKEN`, `SF_INSTANCE_URL`, `SF_REFRESH_TOKEN` | Primary method, auto-refreshes |
-| **SF CLI** | `SF_CLI_ALIAS` | When `sf org login web` has been run |
-| **SOAP Password** | `SF_USERNAME`, `SF_PASSWORD`, `SF_SECURITY_TOKEN` | Only if SOAP login is enabled |
+```bash
+cp .env.example .env
+# Fill: SF_ACCESS_TOKEN, SF_INSTANCE_URL, SF_REFRESH_TOKEN
+```
 
-To get an access token via OAuth:
-1. Open the OAuth URL in your browser (see `.env.example` for format)
-2. Authorize and copy the redirect URL
-3. Extract `access_token`, `refresh_token`, `instance_url` into `.env`
+Token auto-refreshes. If fully expired, get a new one via OAuth browser flow (see CLAUDE.md).
+
+## Testing
+
+```bash
+npm test                          # All 115 unit + 29 integration tests
+npm run test:unit                 # Unit only (<1s, no org needed)
+npm run test:integration          # Integration (needs .env, ~14s)
+npm run test:functional           # Browser test plan for Claude Code
+npm run test:coverage             # With coverage report
+```
+
+## Reference Scripts
+
+```bash
+npx tsx src/create-school.ts              # School__c + 17 fields + all components
+npx tsx src/create-school-event.ts        # School_Action__e platform event (8 fields)
+npx tsx src/create-school-summary.ts      # School City Summary CIO
+npx tsx src/create-school-segment.ts      # Active Schools segment
+npx tsx src/ingest-school-data.ts         # Push 5 schools via Ingestion API
+npx tsx src/verify-school.ts              # Full verification report
+```
 
 ## Project Structure
 
 ```
 src/
-  auth.ts                     # Connection management (token, CLI, SOAP)
-  metadata.ts                 # Metadata API (14 functions: objects, fields, tabs, layouts, etc.)
-  tooling.ts                  # Tooling API (describe, query, Apex, validation rules)
-  index.ts                    # Public API exports
-
-  skills/
-    create-custom-object.ts   # Complete object creation workflow (10 steps + verify + test)
-    data-cloud-replication.ts # CRM Connector data stream + custom DMO creation
-    functional-test.ts        # Browser-based UI test specifications
-
-  create-school.ts            # Reference: School__c object creation
-  verify-school.ts            # Reference: School__c verification report
-  run-functional-tests.ts     # Print functional test plan for browser execution
-  run-dc-replication.ts       # Data Cloud replication pre-flight + plan
-
-tests/
-  helpers/
-    mock-connection.ts        # Mock jsforce Connection factory
-    test-config.ts            # Reusable test object/field configs
-    cleanup.ts                # Test metadata cleanup registry
-  unit/                       # 48 tests (mocked, <1s)
-  integration/                # 29 tests (real org, ~14s)
+  auth.ts                         # OAuth (access token, refresh, sf CLI, SOAP)
+  metadata.ts                     # 14+ Metadata API functions
+  tooling.ts                      # Tooling API (describe, query, Apex)
+  data-cloud.ts                   # Data Cloud (DLO, CIO, segments, activation, IR, consent, kits, agents)
+  index.ts                        # Public API exports
+  skills/                         # TypeScript skill tools
+  create-school*.ts               # Reference scripts
+.claude/skills/                   # Claude Code skill docs (13 SKILL.md files)
+force-app/                        # Agentforce DX (Agent Script + Bot metadata)
+schemas/                          # OpenAPI schemas (Ingestion API)
+tests/                            # Unit (115) + integration (29) + helpers
 ```
 
-## Skills
+## Deployed in Org
 
-### Create Custom Object
+| Component | Type |
+|-----------|------|
+| School__c | Custom object (17 fields, tab, layout, permissions) |
+| School Management | Lightning app |
+| School_Action__e | Platform event (8 fields) |
+| School_c_Home | CRM Connector data stream + DLO |
+| SchoolDataConnector | Ingestion API connector + Profile DLO + DMO |
+| School_City_Summary | Calculated Insight (CIO) |
+| Active_Schools_Profile | Segment |
+| SchoolActionInvocable | Apex @InvocableMethod |
+| Publish_School_Action | GenAiFunction (agent action) |
+| School_Management | GenAiPlugin (agent topic) |
+| School_Management_Agent | Agentforce bot (Agent Script) |
+| School_Data_Kit | Data Kit |
+| DataCloudIngestionApp | Connected App (cdp_ingest_api) |
 
-Creates a fully usable Salesforce custom object with all supporting components in one call:
+## Key Patterns Discovered
 
-```typescript
-import { createCompleteCustomObject } from './skills/create-custom-object';
+- **FLS required** after field creation via Metadata API
+- **DLOs/DMOs cannot be created via API** — only via UI data stream deploy
+- **CIOs (MktCalcInsightObjectDef)** are the correct API for SQL transforms
+- **GenAiPlannerBundle** requires API v66.0+ (v62 doesn't support it)
+- **DC Token Exchange** needed for Ingestion API (`/services/a360/token`)
+- **Segmentation** requires DMO category "Profile" or "Engagement" (not "Other")
+- **Agent Script** (`.agent` file) + `sf agent publish` creates all agent metadata from one file
 
-const result = await createCompleteCustomObject(conn, {
-  objectName: "School",
-  label: "School",
-  pluralLabel: "Schools",
-  fields: [
-    { name: "School_Type", label: "School Type", type: "Picklist",
-      picklistValues: ["Elementary", "High School", "University"], required: true },
-    { name: "City", label: "City", type: "Text", length: 80 },
-    // ...
-  ],
-  layoutSections: ["School Information", "Contact", "Address"],
-  validationRules: [
-    { name: "Require_Code", formula: 'ISBLANK(School_Code__c)', message: "Code required" },
-  ],
-  createApp: {
-    name: "School_Management",
-    label: "School Management",
-  },
-});
-```
+## API Version
 
-**What it creates** (in dependency order):
-1. Custom Object
-2. Custom Fields (all types: Text, Number, Picklist, Email, Phone, Date, LongTextArea, Lookup...)
-3. Page Layout (organized into sections)
-4. List View (with configurable columns)
-5. Compact Layout (for mobile/highlights)
-6. Custom Tab (with icon)
-7. Permission Set (full CRUD + FLS)
-8. Admin Profile FLS (makes fields visible)
-9. Validation Rules
-10. Lightning App (optional)
-
-Then **verifies** all components exist and **tests** with a create/read/update/delete cycle.
-
-### Data Cloud Replication
-
-Replicates a CRM object into Data Cloud:
-
-```bash
-npx tsx src/run-dc-replication.ts School__c
-```
-
-Runs API pre-flight checks, then prints a 15-step browser execution plan for:
-- CRM Connector data stream creation
-- Custom DMO creation with auto field mapping
-- Data refresh and verification
-
-### Functional Tests
-
-Browser-based UI tests executed by Claude Code via chrome automation:
-
-```bash
-npx tsx src/run-functional-tests.ts School__c
-```
-
-8 test steps: tab navigation, list view columns, record form, record creation, 2 validation rules, edit, delete.
-
-## Metadata API Functions
-
-| Function | What it does |
-|----------|-------------|
-| `createCustomObject` | Create object with name field, sharing model |
-| `createCustomField` | All field types (Text, Number, Picklist, Lookup, LongTextArea...) |
-| `createCustomTab` | Object tab with icon |
-| `createLayout` / `updateLayout` | Page layout with sections and field placement |
-| `createListView` | List view with columns and filters |
-| `createCompactLayout` | Mobile/highlights layout (max 10 fields) |
-| `createPermissionSet` | Object CRUD + field-level security |
-| `createValidationRule` | Formula-based validation with error messages |
-| `createRecordType` | Record type variants |
-| `readMetadata` / `updateMetadata` / `deleteMetadata` / `listMetadata` | Generic CRUD |
-
-## Testing
-
-```bash
-npm test                  # All 77 tests (unit + integration)
-npm run test:unit         # Unit only — mocked, no org needed (<1s)
-npm run test:integration  # Integration — real org, auto-cleanup (~14s)
-npm run test:functional   # Print browser test plan for Claude Code
-npm run test:coverage     # With coverage report
-npm run test:watch        # Interactive watch mode
-```
-
-### Test Architecture
-
-| Layer | Tests | What | Speed |
-|-------|-------|------|-------|
-| Unit | 48 | Payload correctness, defaults, error handling | <1s |
-| Integration | 29 | Real API CRUD, field types, cleanup | ~14s |
-| Functional | 8 | Browser UI: forms, validation, CRUD | ~5min |
-
-Integration tests create `ZZTest_*` objects and clean them up automatically via `TestCleanupRegistry`.
-
-## Key Learnings
-
-These are non-obvious patterns discovered during development:
-
-- **FLS required after field creation**: Fields created via Metadata API need an explicit Admin Profile FLS update to be accessible via REST/SOAP data APIs
-- **Number fields need `scale: 0`**: Even for integers, the scale must be explicitly set
-- **LongTextArea needs `visibleLines`**: Required property or creation fails
-- **ListView Name column = `NAME`**: Not `Name` or `FULL_NAME`
-- **Required picklist fields can't have FLS deployed**: Filter them from permission set and profile FLS
-- **Custom tab format in apps**: Use `School__c` not `standard-School__c`
-- **Standard Lightning apps are read-only**: Create a custom app instead of modifying `standard__LightningSales`
-- **Data Cloud CRM Connector is UI-only**: Can't create data streams via API, but can verify via `/ssot/` endpoints
+**v66.0** (Spring '26) throughout.
