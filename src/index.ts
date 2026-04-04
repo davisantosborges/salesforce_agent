@@ -68,6 +68,9 @@ export {
   listSegmentsRest,
   publishSegment,
   buildSegmentFilter,
+  getConsentActions,
+  checkConsent,
+  checkMultiConsent,
   createDataKit,
   readDataKit,
   listDataKits,
@@ -112,4 +115,5 @@ export type {
   AgentActionConfig,
   AgentTopicConfig,
   DataKitConfig,
+  ConsentAction,
 } from "./data-cloud";

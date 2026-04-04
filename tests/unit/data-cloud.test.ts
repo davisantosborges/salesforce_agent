@@ -23,6 +23,9 @@ import {
   createActivation,
   deleteActivation,
   listActivationPlatforms,
+  getConsentActions,
+  checkConsent,
+  checkMultiConsent,
   createDataKit,
   readDataKit,
   listDataKits,
@@ -664,6 +667,41 @@ describe("listAgentActions", () => {
     const result = await listAgentActions(conn);
     expect(mocks.metadataList).toHaveBeenCalledWith([{ type: "GenAiFunction" }]);
     expect(result).toHaveLength(1);
+  });
+});
+
+// ── Consent Management ──
+
+describe("getConsentActions", () => {
+  it("calls /consent/action", async () => {
+    const { conn } = createMockConnection();
+    await getConsentActions(conn);
+    expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
+      method: "GET",
+      url: "/services/data/v66.0/consent/action",
+    }));
+  });
+});
+
+describe("checkConsent", () => {
+  it("checks consent for action and IDs", async () => {
+    const { conn } = createMockConnection();
+    await checkConsent(conn, "email", "003xx000001");
+    expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
+      method: "GET",
+      url: "/services/data/v66.0/consent/action/email?ids=003xx000001",
+    }));
+  });
+});
+
+describe("checkMultiConsent", () => {
+  it("checks multiple actions at once", async () => {
+    const { conn } = createMockConnection();
+    await checkMultiConsent(conn, "003xx000001", ["email", "track", "process"]);
+    expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
+      method: "GET",
+      url: "/services/data/v66.0/consent/multiaction?ids=003xx000001&actions=email,track,process",
+    }));
   });
 });
 

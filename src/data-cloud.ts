@@ -492,6 +492,58 @@ export function buildSegmentFilter(
   };
 }
 
+// ── Consent Management (/consent/) ──
+
+export type ConsentAction =
+  | "email" | "solicit" | "track" | "geotrack" | "process"
+  | "profile" | "storepiielsewhere" | "portability" | "shouldforget";
+
+/**
+ * Get available consent action types.
+ */
+export async function getConsentActions(
+  conn: Connection
+): Promise<any> {
+  return conn.request({
+    method: "GET",
+    url: "/services/data/v66.0/consent/action",
+  });
+}
+
+/**
+ * Check consent status for a specific action and record IDs.
+ *
+ * @param action - Consent action type (email, solicit, track, process, etc.)
+ * @param ids - Comma-separated record IDs to check
+ */
+export async function checkConsent(
+  conn: Connection,
+  action: ConsentAction,
+  ids: string
+): Promise<any> {
+  return conn.request({
+    method: "GET",
+    url: `/services/data/v66.0/consent/action/${action}?ids=${encodeURIComponent(ids)}`,
+  });
+}
+
+/**
+ * Check consent for multiple actions at once.
+ *
+ * @param ids - Comma-separated record IDs
+ * @param actions - Array of consent actions to check
+ */
+export async function checkMultiConsent(
+  conn: Connection,
+  ids: string,
+  actions: ConsentAction[]
+): Promise<any> {
+  return conn.request({
+    method: "GET",
+    url: `/services/data/v66.0/consent/multiaction?ids=${encodeURIComponent(ids)}&actions=${actions.join(",")}`,
+  });
+}
+
 // ── Data Kits (DataPackageKitDefinition + DataPackageKitObject) ──
 
 export interface DataKitConfig {
