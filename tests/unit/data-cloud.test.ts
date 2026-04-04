@@ -23,6 +23,10 @@ import {
   createActivation,
   deleteActivation,
   listActivationPlatforms,
+  listIdentityResolutions,
+  getIdentityResolution,
+  createIdentityResolution,
+  runIdentityResolution,
   createAgentAction,
   createAgentTopic,
   listAgentTopics,
@@ -655,5 +659,60 @@ describe("listAgentActions", () => {
     const result = await listAgentActions(conn);
     expect(mocks.metadataList).toHaveBeenCalledWith([{ type: "GenAiFunction" }]);
     expect(result).toHaveLength(1);
+  });
+});
+
+// ── Identity Resolution ──
+
+describe("listIdentityResolutions", () => {
+  it("calls /ssot/identity-resolutions", async () => {
+    const { conn } = createMockConnection();
+    await listIdentityResolutions(conn);
+    expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
+      method: "GET",
+      url: "/services/data/v66.0/ssot/identity-resolutions",
+    }));
+  });
+});
+
+describe("getIdentityResolution", () => {
+  it("gets by ruleset ID", async () => {
+    const { conn } = createMockConnection();
+    await getIdentityResolution(conn, "rs123");
+    expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
+      method: "GET",
+      url: "/services/data/v66.0/ssot/identity-resolutions/rs123",
+    }));
+  });
+});
+
+describe("createIdentityResolution", () => {
+  it("posts ruleset with match and reconciliation rules", async () => {
+    const { conn } = createMockConnection();
+    await createIdentityResolution(conn, {
+      name: "Test_Rules",
+      matchRules: [
+        { fieldName: "Email__c", objectName: "ssot__Individual__dlm", matchType: "ExactNormalized" },
+      ],
+      reconciliationRules: [
+        { fieldName: "ssot__PersonName__c", strategy: "LastUpdated" },
+      ],
+    });
+    const call = (conn.request as any).mock.calls[0][0];
+    const body = JSON.parse(call.body);
+    expect(body.name).toBe("Test_Rules");
+    expect(body.matchRules[0].matchType).toBe("ExactNormalized");
+    expect(body.reconciliationRules[0].strategy).toBe("LastUpdated");
+  });
+});
+
+describe("runIdentityResolution", () => {
+  it("triggers ruleset execution", async () => {
+    const { conn } = createMockConnection();
+    await runIdentityResolution(conn, "rs456");
+    expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
+      method: "POST",
+      url: "/services/data/v66.0/ssot/identity-resolutions/rs456/run",
+    }));
   });
 });

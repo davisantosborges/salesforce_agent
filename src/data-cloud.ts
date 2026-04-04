@@ -492,6 +492,79 @@ export function buildSegmentFilter(
   };
 }
 
+// ── Identity Resolution (/ssot/identity-resolutions) ──
+
+/**
+ * List all identity resolution rulesets.
+ */
+export async function listIdentityResolutions(
+  conn: Connection
+): Promise<any> {
+  return conn.request({
+    method: "GET",
+    url: "/services/data/v66.0/ssot/identity-resolutions",
+  });
+}
+
+/**
+ * Get a specific identity resolution ruleset.
+ */
+export async function getIdentityResolution(
+  conn: Connection,
+  rulesetId: string
+): Promise<any> {
+  return conn.request({
+    method: "GET",
+    url: `/services/data/v66.0/ssot/identity-resolutions/${rulesetId}`,
+  });
+}
+
+/**
+ * Create an identity resolution ruleset.
+ *
+ * Requires Individual DMO + at least one Contact Point DMO (Email, Phone, Address)
+ * or Party Identification mapped with data.
+ */
+export async function createIdentityResolution(
+  conn: Connection,
+  config: {
+    name: string;
+    description?: string;
+    matchRules: Array<{
+      fieldName: string;
+      objectName: string;
+      matchType: "Exact" | "ExactNormalized" | "Fuzzy";
+    }>;
+    reconciliationRules?: Array<{
+      fieldName: string;
+      strategy: "SourcePriority" | "LastUpdated" | "MostFrequent";
+    }>;
+    [key: string]: any;
+  }
+): Promise<any> {
+  return conn.request({
+    method: "POST",
+    url: "/services/data/v66.0/ssot/identity-resolutions",
+    body: JSON.stringify(config),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+/**
+ * Trigger immediate execution of an identity resolution ruleset.
+ * Processing is asynchronous — initial run takes up to 24 hours.
+ */
+export async function runIdentityResolution(
+  conn: Connection,
+  rulesetId: string
+): Promise<any> {
+  return conn.request({
+    method: "POST",
+    url: `/services/data/v66.0/ssot/identity-resolutions/${rulesetId}/run`,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 // ── Agentforce (GenAiPlugin, GenAiFunction, GenAiPlanner) ──
 
 export interface AgentActionConfig {
