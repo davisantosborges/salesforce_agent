@@ -68,6 +68,9 @@ export {
   listSegmentsRest,
   publishSegment,
   buildSegmentFilter,
+  exchangeDCToken,
+  ingestData,
+  deleteIngestionData,
   mapTypeToDloDatatype,
   buildFieldsFromSchema,
 } from "./data-cloud";
@@ -79,4 +82,5 @@ export type {
   CalculatedInsightConfig,
   SegmentConfig,
   SegmentFilterCriteria,
+  DCToken,
 } from "./data-cloud";

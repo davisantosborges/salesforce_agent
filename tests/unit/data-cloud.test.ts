@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { createMockConnection } from "../helpers/mock-connection";
 import {
   createDataLakeObject,
@@ -381,5 +381,108 @@ describe("buildSegmentFilter", () => {
       "SchoolCustom__dlm", "Is_Active__c", "equals", true, "BOOLEAN"
     );
     expect(criteria.filter.type).toBe("BooleanComparison");
+  });
+});
+
+// ── Ingestion API ──
+
+import { exchangeDCToken, ingestData, deleteIngestionData } from "../../src/data-cloud";
+
+describe("exchangeDCToken", () => {
+  it("exchanges SF token for DC token", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({
+        access_token: "dc_token_123",
+        instance_url: "xxx.c360a.salesforce.com",
+        expires_in: 7200,
+      }),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await exchangeDCToken("https://myorg.salesforce.com", "sf_token_abc");
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://myorg.salesforce.com/services/a360/token",
+      expect.objectContaining({ method: "POST" })
+    );
+    expect(result.accessToken).toBe("dc_token_123");
+    expect(result.instanceUrl).toBe("https://xxx.c360a.salesforce.com");
+    expect(result.expiresIn).toBe(7200);
+
+    vi.unstubAllGlobals();
+  });
+
+  it("adds https:// prefix when missing", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({
+        access_token: "tk",
+        instance_url: "no-protocol.c360a.salesforce.com",
+        expires_in: 3600,
+      }),
+    }));
+
+    const result = await exchangeDCToken("https://x.salesforce.com", "tok");
+    expect(result.instanceUrl).toBe("https://no-protocol.c360a.salesforce.com");
+
+    vi.unstubAllGlobals();
+  });
+
+  it("throws on exchange failure", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({ error: "invalid_scope", error_description: "not allowed" }),
+    }));
+
+    await expect(exchangeDCToken("https://x.salesforce.com", "bad")).rejects.toThrow("DC token exchange failed");
+
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("ingestData", () => {
+  it("posts records to Ingestion API and returns accepted", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      status: 202,
+      json: () => Promise.resolve({ accepted: true }),
+    }));
+
+    const dcToken = { accessToken: "dc_tok", instanceUrl: "https://x.c360a.salesforce.com", expiresIn: 7200 };
+    const result = await ingestData(dcToken, "MyConnector", "MyObject", [{ id: "1", name: "Test" }]);
+
+    expect(result.accepted).toBe(true);
+    const fetchCall = (fetch as any).mock.calls[0];
+    expect(fetchCall[0]).toBe("https://x.c360a.salesforce.com/api/v1/ingest/sources/MyConnector/MyObject");
+    expect(fetchCall[1].headers.Authorization).toBe("Bearer dc_tok");
+
+    vi.unstubAllGlobals();
+  });
+
+  it("throws on non-202 response", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      status: 400,
+      text: () => Promise.resolve("Bad Request"),
+    }));
+
+    const dcToken = { accessToken: "dc_tok", instanceUrl: "https://x.c360a.salesforce.com", expiresIn: 7200 };
+    await expect(ingestData(dcToken, "C", "O", [])).rejects.toThrow("Ingestion failed (400)");
+
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("deleteIngestionData", () => {
+  it("sends DELETE to Ingestion API", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      status: 202,
+      json: () => Promise.resolve({}),
+    }));
+
+    const dcToken = { accessToken: "dc_tok", instanceUrl: "https://x.c360a.salesforce.com", expiresIn: 7200 };
+    const result = await deleteIngestionData(dcToken, "C", "O", ["id1", "id2"]);
+
+    expect(result.accepted).toBe(true);
+    const fetchCall = (fetch as any).mock.calls[0];
+    expect(fetchCall[1].method).toBe("DELETE");
+
+    vi.unstubAllGlobals();
   });
 });

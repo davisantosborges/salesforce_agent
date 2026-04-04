@@ -5,6 +5,9 @@
  * - MktDataTranObject (DLO) operations via Metadata API
  * - Data Transform operations via /ssot/ REST API
  * - Data Cloud Query V2 (ANSI SQL)
+ * - Calculated Insights (MktCalcInsightObjectDef)
+ * - Segmentation (MarketSegmentDefinition)
+ * - Ingestion API (DC token exchange + streaming/bulk data push)
  */
 
 import { Connection } from "jsforce";
@@ -487,6 +490,127 @@ export function buildSegmentFilter(
     joinPath: null as any,
     type: typeMap[dataType],
   };
+}
+
+// ── Ingestion API (DC Token Exchange + Data Push) ──
+
+/**
+ * Data Cloud token — result of the /services/a360/token exchange.
+ */
+export interface DCToken {
+  accessToken: string;
+  instanceUrl: string; // DC tenant URL (e.g., https://xxx.c360a.salesforce.com)
+  expiresIn: number;
+}
+
+/**
+ * Exchange a Salesforce access token for a Data Cloud token.
+ *
+ * Requires a Connected App with `cdp_ingest_api` + `api` scopes.
+ * PlatformCLI tokens do NOT work — they lack the cdp scope.
+ *
+ * @param instanceUrl - Salesforce instance URL (e.g., https://orgfarm-xxx.develop.my.salesforce.com)
+ * @param sfAccessToken - Salesforce access token with cdp_ingest_api scope
+ */
+export async function exchangeDCToken(
+  instanceUrl: string,
+  sfAccessToken: string
+): Promise<DCToken> {
+  const resp = await fetch(`${instanceUrl}/services/a360/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:salesforce:grant-type:external:cdp",
+      subject_token: sfAccessToken,
+      subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
+    }),
+  });
+
+  const data: any = await resp.json();
+
+  if (!data.access_token) {
+    throw new Error(`DC token exchange failed: ${data.error || JSON.stringify(data)}`);
+  }
+
+  // instance_url may lack https:// prefix
+  let dcUrl = data.instance_url;
+  if (!dcUrl.startsWith("https://")) dcUrl = "https://" + dcUrl;
+
+  return {
+    accessToken: data.access_token,
+    instanceUrl: dcUrl,
+    expiresIn: data.expires_in || 7200,
+  };
+}
+
+/**
+ * Push data via the Ingestion API (streaming mode — JSON, max 200KB per request).
+ *
+ * @param dcToken - Data Cloud token from exchangeDCToken()
+ * @param connectorName - Ingestion API connector name (e.g., "SchoolDataConnector")
+ * @param objectName - Schema object name (e.g., "SchoolProfile")
+ * @param records - Array of record objects matching the schema
+ * @returns { accepted: true } on success (202 Accepted — async processing)
+ */
+export async function ingestData(
+  dcToken: DCToken,
+  connectorName: string,
+  objectName: string,
+  records: Record<string, any>[]
+): Promise<{ accepted: boolean }> {
+  const resp = await fetch(
+    `${dcToken.instanceUrl}/api/v1/ingest/sources/${connectorName}/${objectName}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${dcToken.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ data: records }),
+    }
+  );
+
+  if (resp.status === 202 || resp.status === 200) {
+    const data: any = await resp.json().catch(() => ({}));
+    return { accepted: true, ...data };
+  }
+
+  const errorText = await resp.text();
+  throw new Error(`Ingestion failed (${resp.status}): ${errorText}`);
+}
+
+/**
+ * Delete records from a DLO via the Ingestion API.
+ *
+ * @param dcToken - Data Cloud token
+ * @param connectorName - Connector name
+ * @param objectName - Object name
+ * @param ids - Array of primary key values to delete
+ */
+export async function deleteIngestionData(
+  dcToken: DCToken,
+  connectorName: string,
+  objectName: string,
+  ids: string[]
+): Promise<{ accepted: boolean }> {
+  const resp = await fetch(
+    `${dcToken.instanceUrl}/api/v1/ingest/sources/${connectorName}/${objectName}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${dcToken.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ data: ids.map((id) => ({ id })) }),
+    }
+  );
+
+  if (resp.status === 202 || resp.status === 200) {
+    return { accepted: true };
+  }
+
+  const errorText = await resp.text();
+  throw new Error(`Delete failed (${resp.status}): ${errorText}`);
 }
 
 // ── Helpers ──
