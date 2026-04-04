@@ -492,6 +492,87 @@ export function buildSegmentFilter(
   };
 }
 
+// ── Data Kits (DataPackageKitDefinition + DataPackageKitObject) ──
+
+export interface DataKitConfig {
+  /** API name */
+  fullName: string;
+  /** Display label */
+  label: string;
+  description?: string;
+  /** Version string (e.g., "1.0") */
+  versionNumber?: string;
+  isEnabled?: boolean;
+}
+
+/**
+ * Create a Data Kit (DataPackageKitDefinition).
+ * Data Kits package Data Cloud configurations for multi-org deployment.
+ */
+export async function createDataKit(
+  conn: Connection,
+  config: DataKitConfig
+): Promise<any> {
+  return conn.metadata.create("DataPackageKitDefinition" as any, {
+    fullName: config.fullName,
+    developerName: config.fullName,
+    masterLabel: config.label,
+    description: config.description || "",
+    isEnabled: config.isEnabled !== false ? "true" : "false",
+    versionNumber: config.versionNumber || "1.0",
+  });
+}
+
+/**
+ * Read a Data Kit definition.
+ */
+export async function readDataKit(
+  conn: Connection,
+  fullName: string
+): Promise<any> {
+  return conn.metadata.read("DataPackageKitDefinition" as any, fullName);
+}
+
+/**
+ * List all Data Kits.
+ */
+export async function listDataKits(
+  conn: Connection
+): Promise<any[]> {
+  const result = await conn.metadata.list([{ type: "DataPackageKitDefinition" }]);
+  return Array.isArray(result) ? result : result ? [result] : [];
+}
+
+/**
+ * Delete a Data Kit.
+ */
+export async function deleteDataKit(
+  conn: Connection,
+  fullName: string
+): Promise<any> {
+  return conn.metadata.delete("DataPackageKitDefinition" as any, fullName);
+}
+
+/**
+ * List Data Kit objects (components added to kits).
+ */
+export async function listDataKitObjects(
+  conn: Connection
+): Promise<any[]> {
+  const result = await conn.metadata.list([{ type: "DataPackageKitObject" }]);
+  return Array.isArray(result) ? result : result ? [result] : [];
+}
+
+/**
+ * List Data Stream Templates.
+ */
+export async function listDataStreamTemplates(
+  conn: Connection
+): Promise<any[]> {
+  const result = await conn.metadata.list([{ type: "DataStreamTemplate" }]);
+  return Array.isArray(result) ? result : result ? [result] : [];
+}
+
 // ── Identity Resolution (/ssot/identity-resolutions) ──
 
 /**

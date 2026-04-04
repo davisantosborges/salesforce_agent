@@ -68,6 +68,12 @@ export {
   listSegmentsRest,
   publishSegment,
   buildSegmentFilter,
+  createDataKit,
+  readDataKit,
+  listDataKits,
+  deleteDataKit,
+  listDataKitObjects,
+  listDataStreamTemplates,
   listIdentityResolutions,
   getIdentityResolution,
   createIdentityResolution,
@@ -105,4 +111,5 @@ export type {
   DCToken,
   AgentActionConfig,
   AgentTopicConfig,
+  DataKitConfig,
 } from "./data-cloud";

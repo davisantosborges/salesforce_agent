@@ -23,6 +23,11 @@ import {
   createActivation,
   deleteActivation,
   listActivationPlatforms,
+  createDataKit,
+  readDataKit,
+  listDataKits,
+  deleteDataKit,
+  listDataKitObjects,
   listIdentityResolutions,
   getIdentityResolution,
   createIdentityResolution,
@@ -659,6 +664,63 @@ describe("listAgentActions", () => {
     const result = await listAgentActions(conn);
     expect(mocks.metadataList).toHaveBeenCalledWith([{ type: "GenAiFunction" }]);
     expect(result).toHaveLength(1);
+  });
+});
+
+// ── Data Kits ──
+
+describe("createDataKit", () => {
+  it("creates DataPackageKitDefinition with correct payload", async () => {
+    const { conn, mocks } = createMockConnection();
+    await createDataKit(conn, {
+      fullName: "School_Kit",
+      label: "School Kit",
+      description: "Test kit",
+      versionNumber: "2.0",
+    });
+    expect(mocks.metadataCreate).toHaveBeenCalledWith("DataPackageKitDefinition", expect.objectContaining({
+      fullName: "School_Kit",
+      developerName: "School_Kit",
+      masterLabel: "School Kit",
+      versionNumber: "2.0",
+      isEnabled: "true",
+    }));
+  });
+});
+
+describe("readDataKit", () => {
+  it("reads DataPackageKitDefinition", async () => {
+    const { conn, mocks } = createMockConnection();
+    await readDataKit(conn, "School_Kit");
+    expect(mocks.metadataRead).toHaveBeenCalledWith("DataPackageKitDefinition", "School_Kit");
+  });
+});
+
+describe("listDataKits", () => {
+  it("lists DataPackageKitDefinition types", async () => {
+    const { conn, mocks } = createMockConnection();
+    mocks.metadataList.mockResolvedValue([{ fullName: "Kit1" }]);
+    const result = await listDataKits(conn);
+    expect(mocks.metadataList).toHaveBeenCalledWith([{ type: "DataPackageKitDefinition" }]);
+    expect(result).toHaveLength(1);
+  });
+});
+
+describe("deleteDataKit", () => {
+  it("deletes DataPackageKitDefinition", async () => {
+    const { conn, mocks } = createMockConnection();
+    await deleteDataKit(conn, "School_Kit");
+    expect(mocks.metadataDelete).toHaveBeenCalledWith("DataPackageKitDefinition", "School_Kit");
+  });
+});
+
+describe("listDataKitObjects", () => {
+  it("lists DataPackageKitObject types", async () => {
+    const { conn, mocks } = createMockConnection();
+    mocks.metadataList.mockResolvedValue([]);
+    const result = await listDataKitObjects(conn);
+    expect(mocks.metadataList).toHaveBeenCalledWith([{ type: "DataPackageKitObject" }]);
+    expect(result).toHaveLength(0);
   });
 });
 
