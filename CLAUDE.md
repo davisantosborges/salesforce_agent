@@ -19,12 +19,13 @@ OAuth access token with auto-refresh. SOAP login **disabled** in this org.
 cp .env.example .env   # Fill: SF_ACCESS_TOKEN, SF_INSTANCE_URL, SF_REFRESH_TOKEN
 ```
 
-## Skills (13)
+## Skills (14)
 
 Skills are in `.claude/skills/` — use as `/slash-commands` or they auto-load when relevant.
 
 | Skill | Command | What |
 |-------|---------|------|
+| **Setup** | `/setup-salesforce` | **Connect org, auth, .env, sf CLI, DC token** |
 | Custom Object | `/create-custom-object` | Objects + fields + tabs + layouts + permissions |
 | Platform Event | `/platform-event` | Event creation + publish + modify |
 | Data Cloud | `/data-cloud` | CRM Connector → DLO → DMO → CIO |
