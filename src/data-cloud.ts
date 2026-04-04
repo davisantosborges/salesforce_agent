@@ -179,7 +179,7 @@ export async function listDataTransforms(
 ): Promise<any> {
   return conn.request({
     method: "GET",
-    url: "/services/data/v62.0/ssot/data-transforms",
+    url: "/services/data/v66.0/ssot/data-transforms",
   });
 }
 
@@ -193,7 +193,7 @@ export async function createDataTransform(
 ): Promise<any> {
   return conn.request({
     method: "POST",
-    url: "/services/data/v62.0/ssot/data-transforms",
+    url: "/services/data/v66.0/ssot/data-transforms",
     body: JSON.stringify({
       name: config.name,
       sql: config.sql,
@@ -215,7 +215,7 @@ export async function getDataTransform(
 ): Promise<any> {
   return conn.request({
     method: "GET",
-    url: `/services/data/v62.0/ssot/data-transforms/${nameOrId}`,
+    url: `/services/data/v66.0/ssot/data-transforms/${nameOrId}`,
   });
 }
 
@@ -231,7 +231,7 @@ export async function queryDataCloud(
 ): Promise<any> {
   return conn.request({
     method: "POST",
-    url: "/services/data/v62.0/ssot/queryv2",
+    url: "/services/data/v66.0/ssot/queryv2",
     body: JSON.stringify({ sql }),
     headers: { "Content-Type": "application/json" },
   });
@@ -435,7 +435,7 @@ export async function listSegmentsRest(
 ): Promise<any> {
   return conn.request({
     method: "GET",
-    url: "/services/data/v62.0/ssot/segments",
+    url: "/services/data/v66.0/ssot/segments",
   });
 }
 
@@ -448,7 +448,7 @@ export async function publishSegment(
 ): Promise<any> {
   return conn.request({
     method: "POST",
-    url: `/services/data/v62.0/ssot/segments/${segmentApiName}/actions/publish`,
+    url: `/services/data/v66.0/ssot/segments/${segmentApiName}/actions/publish`,
     headers: { "Content-Type": "application/json" },
   });
 }
@@ -617,7 +617,7 @@ export async function listActivationTargets(
 ): Promise<any> {
   return conn.request({
     method: "GET",
-    url: "/services/data/v62.0/ssot/activation-targets",
+    url: "/services/data/v66.0/ssot/activation-targets",
   });
 }
 
@@ -630,7 +630,7 @@ export async function getActivationTarget(
 ): Promise<any> {
   return conn.request({
     method: "GET",
-    url: `/services/data/v62.0/ssot/activation-targets/${targetId}`,
+    url: `/services/data/v66.0/ssot/activation-targets/${targetId}`,
   });
 }
 
@@ -647,7 +647,7 @@ export async function createActivationTarget(
 ): Promise<any> {
   return conn.request({
     method: "POST",
-    url: "/services/data/v62.0/ssot/activation-targets",
+    url: "/services/data/v66.0/ssot/activation-targets",
     body: JSON.stringify(config),
     headers: { "Content-Type": "application/json" },
   });
@@ -662,7 +662,7 @@ export async function deleteActivationTarget(
 ): Promise<any> {
   return conn.request({
     method: "DELETE",
-    url: `/services/data/v62.0/ssot/activation-targets/${targetId}`,
+    url: `/services/data/v66.0/ssot/activation-targets/${targetId}`,
   });
 }
 
@@ -674,7 +674,7 @@ export async function listActivations(
 ): Promise<any> {
   return conn.request({
     method: "GET",
-    url: "/services/data/v62.0/ssot/activations",
+    url: "/services/data/v66.0/ssot/activations",
   });
 }
 
@@ -687,7 +687,7 @@ export async function getActivation(
 ): Promise<any> {
   return conn.request({
     method: "GET",
-    url: `/services/data/v62.0/ssot/activations/${activationId}`,
+    url: `/services/data/v66.0/ssot/activations/${activationId}`,
   });
 }
 
@@ -706,7 +706,7 @@ export async function createActivation(
 ): Promise<any> {
   return conn.request({
     method: "POST",
-    url: "/services/data/v62.0/ssot/activations",
+    url: "/services/data/v66.0/ssot/activations",
     body: JSON.stringify(config),
     headers: { "Content-Type": "application/json" },
   });
@@ -721,7 +721,7 @@ export async function deleteActivation(
 ): Promise<any> {
   return conn.request({
     method: "DELETE",
-    url: `/services/data/v62.0/ssot/activations/${activationId}`,
+    url: `/services/data/v66.0/ssot/activations/${activationId}`,
   });
 }
 

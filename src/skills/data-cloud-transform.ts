@@ -203,7 +203,7 @@ export async function createDataCloudTransform(
   try {
     const ciData: any = await conn.request({
       method: "GET",
-      url: `/services/data/v62.0/ssot/calculated-insights`,
+      url: `/services/data/v66.0/ssot/calculated-insights`,
     });
     const found = ciData.collection?.calculatedInsights?.find(
       (ci: any) => ci.name === config.name || ci.label === config.label

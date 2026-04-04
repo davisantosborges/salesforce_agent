@@ -554,7 +554,7 @@ export async function publishPlatformEvent(
   const name = eventName.endsWith("__e") ? eventName : `${eventName}__e`;
   return conn.request({
     method: "POST",
-    url: `/services/data/v62.0/sobjects/${name}`,
+    url: `/services/data/v66.0/sobjects/${name}`,
     body: JSON.stringify(data),
     headers: { "Content-Type": "application/json" },
   });

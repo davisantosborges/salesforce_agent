@@ -430,7 +430,7 @@ describe("publishPlatformEvent", () => {
     await publishPlatformEvent(conn, "School_Action", { Action_Type__c: "Create" });
     expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
       method: "POST",
-      url: "/services/data/v62.0/sobjects/School_Action__e",
+      url: "/services/data/v66.0/sobjects/School_Action__e",
     }));
   });
 
@@ -438,7 +438,7 @@ describe("publishPlatformEvent", () => {
     const { conn } = createMockConnection();
     await publishPlatformEvent(conn, "Test__e", { Field__c: "value" });
     expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
-      url: "/services/data/v62.0/sobjects/Test__e",
+      url: "/services/data/v66.0/sobjects/Test__e",
     }));
   });
 });

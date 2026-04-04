@@ -72,7 +72,7 @@ async function main() {
 
     const result: any = await conn.request({
       method: "POST",
-      url: `/services/data/v62.0/sobjects/${config.objectApiName}`,
+      url: `/services/data/v66.0/sobjects/${config.objectApiName}`,
       body: JSON.stringify(testData),
       headers: { "Content-Type": "application/json" },
     });
@@ -92,7 +92,7 @@ async function main() {
   try {
     const streams: any = await conn.request({
       method: "GET",
-      url: "/services/data/v62.0/ssot/data-streams",
+      url: "/services/data/v66.0/ssot/data-streams",
     });
     if (streams && Array.isArray(streams)) {
       console.log(`   ✓ Data Cloud API accessible — ${streams.length} existing streams`);

@@ -14,7 +14,7 @@ async function main() {
   console.log("── 1. Object Describe ──\n");
   const desc: any = await conn.request({
     method: "GET",
-    url: "/services/data/v62.0/sobjects/School__c/describe",
+    url: "/services/data/v66.0/sobjects/School__c/describe",
   });
   console.log(`  Label:        ${desc.label}`);
   console.log(`  Plural:       ${desc.labelPlural}`);
@@ -58,7 +58,7 @@ async function main() {
   console.log("\n── 5. List Views ──\n");
   const lvResult: any = await conn.request({
     method: "GET",
-    url: `/services/data/v62.0/sobjects/School__c/listviews`,
+    url: `/services/data/v66.0/sobjects/School__c/listviews`,
   });
   for (const lv of lvResult.listviews) {
     console.log(`  ${lv.label} (${lv.developerName}) — ${lv.soqlCompatible ? "SOQL" : "non-SOQL"}`);

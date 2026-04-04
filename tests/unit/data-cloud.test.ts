@@ -161,7 +161,7 @@ describe("listDataTransforms", () => {
     await listDataTransforms(conn);
     expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
       method: "GET",
-      url: "/services/data/v62.0/ssot/data-transforms",
+      url: "/services/data/v66.0/ssot/data-transforms",
     }));
   });
 });
@@ -172,7 +172,7 @@ describe("queryDataCloud", () => {
     await queryDataCloud(conn, "SELECT * FROM Test__dll LIMIT 5");
     expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
       method: "POST",
-      url: "/services/data/v62.0/ssot/queryv2",
+      url: "/services/data/v66.0/ssot/queryv2",
       body: JSON.stringify({ sql: "SELECT * FROM Test__dll LIMIT 5" }),
     }));
   });
@@ -506,7 +506,7 @@ describe("listActivationTargets", () => {
     await listActivationTargets(conn);
     expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
       method: "GET",
-      url: "/services/data/v62.0/ssot/activation-targets",
+      url: "/services/data/v66.0/ssot/activation-targets",
     }));
   });
 });
@@ -520,7 +520,7 @@ describe("createActivationTarget", () => {
     });
     expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
       method: "POST",
-      url: "/services/data/v62.0/ssot/activation-targets",
+      url: "/services/data/v66.0/ssot/activation-targets",
     }));
     const call = (conn.request as any).mock.calls[0][0];
     const body = JSON.parse(call.body);
@@ -535,7 +535,7 @@ describe("deleteActivationTarget", () => {
     await deleteActivationTarget(conn, "target123");
     expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
       method: "DELETE",
-      url: "/services/data/v62.0/ssot/activation-targets/target123",
+      url: "/services/data/v66.0/ssot/activation-targets/target123",
     }));
   });
 });
@@ -546,7 +546,7 @@ describe("listActivations", () => {
     await listActivations(conn);
     expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
       method: "GET",
-      url: "/services/data/v62.0/ssot/activations",
+      url: "/services/data/v66.0/ssot/activations",
     }));
   });
 });
@@ -573,7 +573,7 @@ describe("deleteActivation", () => {
     await deleteActivation(conn, "act456");
     expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
       method: "DELETE",
-      url: "/services/data/v62.0/ssot/activations/act456",
+      url: "/services/data/v66.0/ssot/activations/act456",
     }));
   });
 });
