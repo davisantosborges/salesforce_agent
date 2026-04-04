@@ -492,6 +492,134 @@ export function buildSegmentFilter(
   };
 }
 
+// ── Activation (Activation Targets + Activations) ──
+
+/**
+ * List all activation targets via /ssot/activation-targets.
+ */
+export async function listActivationTargets(
+  conn: Connection
+): Promise<any> {
+  return conn.request({
+    method: "GET",
+    url: "/services/data/v62.0/ssot/activation-targets",
+  });
+}
+
+/**
+ * Get a specific activation target.
+ */
+export async function getActivationTarget(
+  conn: Connection,
+  targetId: string
+): Promise<any> {
+  return conn.request({
+    method: "GET",
+    url: `/services/data/v62.0/ssot/activation-targets/${targetId}`,
+  });
+}
+
+/**
+ * Create an activation target.
+ */
+export async function createActivationTarget(
+  conn: Connection,
+  config: {
+    name: string;
+    activationPlatformName: string;
+    [key: string]: any;
+  }
+): Promise<any> {
+  return conn.request({
+    method: "POST",
+    url: "/services/data/v62.0/ssot/activation-targets",
+    body: JSON.stringify(config),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+/**
+ * Delete an activation target.
+ */
+export async function deleteActivationTarget(
+  conn: Connection,
+  targetId: string
+): Promise<any> {
+  return conn.request({
+    method: "DELETE",
+    url: `/services/data/v62.0/ssot/activation-targets/${targetId}`,
+  });
+}
+
+/**
+ * List all activations via /ssot/activations.
+ */
+export async function listActivations(
+  conn: Connection
+): Promise<any> {
+  return conn.request({
+    method: "GET",
+    url: "/services/data/v62.0/ssot/activations",
+  });
+}
+
+/**
+ * Get a specific activation.
+ */
+export async function getActivation(
+  conn: Connection,
+  activationId: string
+): Promise<any> {
+  return conn.request({
+    method: "GET",
+    url: `/services/data/v62.0/ssot/activations/${activationId}`,
+  });
+}
+
+/**
+ * Create an activation (publish a segment to a target).
+ */
+export async function createActivation(
+  conn: Connection,
+  config: {
+    activationTargetName: string;
+    segmentName: string;
+    contactPointPath?: any;
+    additionalAttributes?: any[];
+    [key: string]: any;
+  }
+): Promise<any> {
+  return conn.request({
+    method: "POST",
+    url: "/services/data/v62.0/ssot/activations",
+    body: JSON.stringify(config),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+/**
+ * Delete an activation.
+ */
+export async function deleteActivation(
+  conn: Connection,
+  activationId: string
+): Promise<any> {
+  return conn.request({
+    method: "DELETE",
+    url: `/services/data/v62.0/ssot/activations/${activationId}`,
+  });
+}
+
+/**
+ * List activation platforms via ActivationPlatform metadata.
+ */
+export async function listActivationPlatforms(
+  conn: Connection
+): Promise<any[]> {
+  const result = await conn.metadata.list([{ type: "ActivationPlatform" }]);
+  return Array.isArray(result) ? result : result ? [result] : [];
+}
+
 // ── Ingestion API (DC Token Exchange + Data Push) ──
 
 /**

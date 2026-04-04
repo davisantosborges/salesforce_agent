@@ -16,6 +16,13 @@ import {
   listSegments,
   deleteSegment,
   buildSegmentFilter,
+  listActivationTargets,
+  createActivationTarget,
+  deleteActivationTarget,
+  listActivations,
+  createActivation,
+  deleteActivation,
+  listActivationPlatforms,
   mapTypeToDloDatatype,
   buildFieldsFromSchema,
 } from "../../src/data-cloud";
@@ -484,5 +491,95 @@ describe("deleteIngestionData", () => {
     expect(fetchCall[1].method).toBe("DELETE");
 
     vi.unstubAllGlobals();
+  });
+});
+
+// ── Activation ──
+
+describe("listActivationTargets", () => {
+  it("calls /ssot/activation-targets", async () => {
+    const { conn } = createMockConnection();
+    await listActivationTargets(conn);
+    expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
+      method: "GET",
+      url: "/services/data/v62.0/ssot/activation-targets",
+    }));
+  });
+});
+
+describe("createActivationTarget", () => {
+  it("posts to /ssot/activation-targets", async () => {
+    const { conn } = createMockConnection();
+    await createActivationTarget(conn, {
+      name: "TestTarget",
+      activationPlatformName: "MarketingCloud",
+    });
+    expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
+      method: "POST",
+      url: "/services/data/v62.0/ssot/activation-targets",
+    }));
+    const call = (conn.request as any).mock.calls[0][0];
+    const body = JSON.parse(call.body);
+    expect(body.name).toBe("TestTarget");
+    expect(body.activationPlatformName).toBe("MarketingCloud");
+  });
+});
+
+describe("deleteActivationTarget", () => {
+  it("deletes by ID", async () => {
+    const { conn } = createMockConnection();
+    await deleteActivationTarget(conn, "target123");
+    expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
+      method: "DELETE",
+      url: "/services/data/v62.0/ssot/activation-targets/target123",
+    }));
+  });
+});
+
+describe("listActivations", () => {
+  it("calls /ssot/activations", async () => {
+    const { conn } = createMockConnection();
+    await listActivations(conn);
+    expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
+      method: "GET",
+      url: "/services/data/v62.0/ssot/activations",
+    }));
+  });
+});
+
+describe("createActivation", () => {
+  it("posts activation with segment and target", async () => {
+    const { conn } = createMockConnection();
+    await createActivation(conn, {
+      activationTargetName: "MyTarget",
+      segmentName: "Active_Schools",
+      contactPointPath: { fieldApiName: "Email__c", objectApiName: "SchoolProfileDMO__dlm" },
+    });
+    const call = (conn.request as any).mock.calls[0][0];
+    const body = JSON.parse(call.body);
+    expect(body.activationTargetName).toBe("MyTarget");
+    expect(body.segmentName).toBe("Active_Schools");
+    expect(body.contactPointPath.fieldApiName).toBe("Email__c");
+  });
+});
+
+describe("deleteActivation", () => {
+  it("deletes by ID", async () => {
+    const { conn } = createMockConnection();
+    await deleteActivation(conn, "act456");
+    expect(conn.request).toHaveBeenCalledWith(expect.objectContaining({
+      method: "DELETE",
+      url: "/services/data/v62.0/ssot/activations/act456",
+    }));
+  });
+});
+
+describe("listActivationPlatforms", () => {
+  it("lists ActivationPlatform metadata", async () => {
+    const { conn, mocks } = createMockConnection();
+    mocks.metadataList.mockResolvedValue([{ fullName: "MarketingCloud" }]);
+    const result = await listActivationPlatforms(conn);
+    expect(mocks.metadataList).toHaveBeenCalledWith([{ type: "ActivationPlatform" }]);
+    expect(result).toHaveLength(1);
   });
 });
