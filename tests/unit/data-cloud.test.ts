@@ -23,6 +23,10 @@ import {
   createActivation,
   deleteActivation,
   listActivationPlatforms,
+  createAgentAction,
+  createAgentTopic,
+  listAgentTopics,
+  listAgentActions,
   mapTypeToDloDatatype,
   buildFieldsFromSchema,
 } from "../../src/data-cloud";
@@ -580,6 +584,76 @@ describe("listActivationPlatforms", () => {
     mocks.metadataList.mockResolvedValue([{ fullName: "MarketingCloud" }]);
     const result = await listActivationPlatforms(conn);
     expect(mocks.metadataList).toHaveBeenCalledWith([{ type: "ActivationPlatform" }]);
+    expect(result).toHaveLength(1);
+  });
+});
+
+// ── Agentforce ──
+
+describe("createAgentAction", () => {
+  it("creates GenAiFunction with correct payload", async () => {
+    const { conn, mocks } = createMockConnection();
+    await createAgentAction(conn, {
+      fullName: "Publish_School_Action",
+      label: "Publish School Action",
+      description: "Publishes a school action event",
+      invocationTarget: "SchoolActionInvocable",
+      invocationTargetType: "apex",
+    });
+    expect(mocks.metadataCreate).toHaveBeenCalledWith("GenAiFunction", expect.objectContaining({
+      fullName: "Publish_School_Action",
+      invocationTarget: "SchoolActionInvocable",
+      invocationTargetType: "apex",
+      isConfirmationRequired: "true",
+    }));
+  });
+});
+
+describe("createAgentTopic", () => {
+  it("creates GenAiPlugin with action references", async () => {
+    const { conn, mocks } = createMockConnection();
+    await createAgentTopic(conn, {
+      fullName: "School_Management",
+      label: "School Management",
+      description: "Manage schools...",
+      actionNames: ["Publish_School_Action"],
+    });
+    expect(mocks.metadataCreate).toHaveBeenCalledWith("GenAiPlugin", expect.objectContaining({
+      fullName: "School_Management",
+      pluginType: "Topic",
+      genAiFunctions: { functionName: "Publish_School_Action" },
+    }));
+  });
+
+  it("handles multiple actions", async () => {
+    const { conn, mocks } = createMockConnection();
+    await createAgentTopic(conn, {
+      fullName: "Test",
+      label: "Test",
+      description: "Test",
+      actionNames: ["Action1", "Action2"],
+    });
+    const call = mocks.metadataCreate.mock.calls[0][1];
+    expect(call.genAiFunctions).toEqual([{ functionName: "Action1" }, { functionName: "Action2" }]);
+  });
+});
+
+describe("listAgentTopics", () => {
+  it("lists GenAiPlugin metadata", async () => {
+    const { conn, mocks } = createMockConnection();
+    mocks.metadataList.mockResolvedValue([{ fullName: "T1" }, { fullName: "T2" }]);
+    const result = await listAgentTopics(conn);
+    expect(mocks.metadataList).toHaveBeenCalledWith([{ type: "GenAiPlugin" }]);
+    expect(result).toHaveLength(2);
+  });
+});
+
+describe("listAgentActions", () => {
+  it("lists GenAiFunction metadata", async () => {
+    const { conn, mocks } = createMockConnection();
+    mocks.metadataList.mockResolvedValue([{ fullName: "A1" }]);
+    const result = await listAgentActions(conn);
+    expect(mocks.metadataList).toHaveBeenCalledWith([{ type: "GenAiFunction" }]);
     expect(result).toHaveLength(1);
   });
 });

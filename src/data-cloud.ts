@@ -492,6 +492,121 @@ export function buildSegmentFilter(
   };
 }
 
+// ── Agentforce (GenAiPlugin, GenAiFunction, GenAiPlanner) ──
+
+export interface AgentActionConfig {
+  fullName: string;
+  label: string;
+  description: string;
+  /** Apex class name or Flow API name */
+  invocationTarget: string;
+  /** "apex" for @InvocableMethod, "flow" for Flows */
+  invocationTargetType: "apex" | "flow";
+  /** Whether agent asks user to confirm before executing */
+  confirmationRequired?: boolean;
+}
+
+export interface AgentTopicConfig {
+  fullName: string;
+  label: string;
+  /** Description + instructions (use \\n\\nInstructions:\\n1. ... format) */
+  description: string;
+  /** GenAiFunction names this topic can invoke */
+  actionNames: string[];
+  language?: string;
+}
+
+/**
+ * Create a GenAiFunction (agent action).
+ */
+export async function createAgentAction(
+  conn: Connection,
+  config: AgentActionConfig
+): Promise<any> {
+  return conn.metadata.create("GenAiFunction" as any, {
+    fullName: config.fullName,
+    description: config.description,
+    invocationTarget: config.invocationTarget,
+    invocationTargetType: config.invocationTargetType,
+    isConfirmationRequired: config.confirmationRequired !== false ? "true" : "false",
+    masterLabel: config.label,
+  });
+}
+
+/**
+ * Create a GenAiPlugin (agent topic).
+ */
+export async function createAgentTopic(
+  conn: Connection,
+  config: AgentTopicConfig
+): Promise<any> {
+  const functions = config.actionNames.length === 1
+    ? { functionName: config.actionNames[0] }
+    : config.actionNames.map((n) => ({ functionName: n }));
+
+  return conn.metadata.create("GenAiPlugin" as any, {
+    fullName: config.fullName,
+    description: config.description,
+    developerName: config.fullName,
+    genAiFunctions: functions,
+    language: config.language || "en_US",
+    masterLabel: config.label,
+    pluginType: "Topic",
+  });
+}
+
+/**
+ * Read a GenAiFunction.
+ */
+export async function readAgentAction(
+  conn: Connection,
+  fullName: string
+): Promise<any> {
+  return conn.metadata.read("GenAiFunction" as any, fullName);
+}
+
+/**
+ * Read a GenAiPlugin.
+ */
+export async function readAgentTopic(
+  conn: Connection,
+  fullName: string
+): Promise<any> {
+  return conn.metadata.read("GenAiPlugin" as any, fullName);
+}
+
+/**
+ * List all GenAiPlugins (topics).
+ */
+export async function listAgentTopics(
+  conn: Connection
+): Promise<any[]> {
+  const result = await conn.metadata.list([{ type: "GenAiPlugin" }]);
+  return Array.isArray(result) ? result : result ? [result] : [];
+}
+
+/**
+ * List all GenAiFunctions (actions).
+ */
+export async function listAgentActions(
+  conn: Connection
+): Promise<any[]> {
+  const result = await conn.metadata.list([{ type: "GenAiFunction" }]);
+  return Array.isArray(result) ? result : result ? [result] : [];
+}
+
+/**
+ * Deploy an Apex class via Tooling API.
+ * Used to create @InvocableMethod classes for agent actions.
+ */
+export async function deployApexClass(
+  conn: Connection,
+  name: string,
+  body: string
+): Promise<any> {
+  return conn.tooling.create("ApexClass", { Name: name, Body: body });
+}
+
 // ── Activation (Activation Targets + Activations) ──
 
 /**
